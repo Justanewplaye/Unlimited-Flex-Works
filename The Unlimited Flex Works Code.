@@ -11,15 +11,8 @@ local isPlaying = false
 local executedPlayers = {} -- Stores players who executed the script
 
 -- Create a BindableEvent for Flexworks users only
-local flexworksEvent
-
-if replicatedStorage:FindFirstChild("FlexworksExclusive") then
-    flexworksEvent = replicatedStorage:FindFirstChild("FlexworksExclusive")
-else
-    flexworksEvent = Instance.new("BindableEvent")
-    flexworksEvent.Name = "FlexworksExclusive"
-    flexworksEvent.Parent = replicatedStorage
-end
+local flexworksEvent = replicatedStorage:FindFirstChild("FlexworksExclusive") or Instance.new("BindableEvent", replicatedStorage)
+flexworksEvent.Name = "FlexworksExclusive"
 
 -- Function to Create and Store the Tool Persistently
 local function createTool()
@@ -36,6 +29,9 @@ local function createTool()
 
     return tool
 end
+
+-- Ensure the tool exists
+local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
 
 -- Function to Play Animation
 local function playAnimation()
@@ -57,8 +53,8 @@ end
 
 -- Function to Play Audio for All Executed Users
 local function playAudio()
-    for _, user in ipairs(executedPlayers) do
-        if user.Character then
+    for _, user in pairs(executedPlayers) do
+        if user and user.Character then
             local character = user.Character
             local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
             soundFolder.Name = "SoundFolder"
@@ -118,8 +114,17 @@ player.CharacterAdded:Connect(function()
         createTool().Parent = backpack
     end
 
-    -- Add Player to Execution List
-    if not table.find(executedPlayers, player) then
+    -- Check if player is already in executedPlayers before adding them
+    local alreadyExists = false
+    for _, v in pairs(executedPlayers) do
+        if v == player then
+            alreadyExists = true
+            break
+        end
+    end
+
+    -- If player is new, add them to executedPlayers
+    if not alreadyExists then
         table.insert(executedPlayers, player)
         game.StarterGui:SetCore("SendNotification", {
             Title = "Unlimited Flexworks",
@@ -173,3 +178,4 @@ end
 
 -- Create the UI Button
 createUI()
+-- github is being mean
