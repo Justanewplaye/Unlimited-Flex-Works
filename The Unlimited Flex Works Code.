@@ -13,7 +13,7 @@ local executedPlayers = {} -- Tracks players with the script
 
 -- Tool Name & Version System
 local TOOL_NAME = "Unlimited Flexworks"
-local TOOL_VERSION = "1.5" -- Update this version when you change the script
+local TOOL_VERSION = "1.6" -- Change this when updating
 
 -- Debugging function
 local function debugMessage(msg)
@@ -44,7 +44,7 @@ local function removeOutdatedTools()
     end
 end
 
--- Function to Create and Store the Tool Persistently
+-- **Function to Create and Store the Tool Persistently**
 local function createTool()
     local existingTool = backpack:FindFirstChild(TOOL_NAME)
     
@@ -91,7 +91,7 @@ end
 -- Ensure the tool exists
 local tool = createTool()
 
--- Function to Enable Noclip
+-- **Function to Enable Noclip**
 local function enableNoclip()
     noclipEnabled = true
     runService.Stepped:Connect(function()
@@ -105,7 +105,7 @@ local function enableNoclip()
     end)
 end
 
--- Function to Disable Noclip
+-- **Function to Disable Noclip**
 local function disableNoclip()
     noclipEnabled = false
     if player.Character then
@@ -117,7 +117,7 @@ local function disableNoclip()
     end
 end
 
--- Function to Play Animation with Noclip
+-- **Function to Play Animation with Noclip**
 local function playAnimation()
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -147,7 +147,7 @@ local function playAnimation()
     return 3 -- Default to 3 seconds if animation fails
 end
 
--- Function to Play Audio
+-- **Function to Play Audio**
 local function playAudio()
     debugMessage("Playing sound")
 
@@ -184,7 +184,7 @@ local function playAudio()
     end
 end
 
--- Tool Equipped Function (Prevents Spam)
+-- **Tool Equipped Function (Prevents Spam)**
 tool.Equipped:Connect(function()
     if isPlaying then return end
 
@@ -200,13 +200,50 @@ tool.Equipped:Connect(function()
     end)
 end)
 
--- Ensure Tool Persists After Reset
-player.CharacterAdded:Connect(function()
-    wait(1)
-    backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
-    starterGear = player:FindFirstChild("StarterGear")
+-- **Function to Track Script Users in Real-Time**
+local function updateExecutedPlayers()
+    executedPlayers = {} -- Reset list
 
-    -- Check for outdated versions and update if necessary
-    removeOutdatedTools()
-    createTool().Parent = backpack
-end)
+    for _, p in pairs(players:GetPlayers()) do
+        if p:GetAttribute("HasFlexworks") then
+            table.insert(executedPlayers, p)
+        end
+    end
+end
+
+-- **Function to Refresh Player Count (Auto Updates Every 0.5s)**
+local function startPlayerCounter()
+    player:SetAttribute("HasFlexworks", true) -- Mark this player as a script user
+
+    task.spawn(function()
+        while true do
+            updateExecutedPlayers()
+            wait(0.5) -- Update every 0.5 seconds
+        end
+    end)
+end
+
+-- **Function to Show Player Count in UI**
+local function showPlayerCount()
+    updateExecutedPlayers() -- Ensure the latest data
+
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Flexworks Users",
+        Text = "Users with script: " .. #executedPlayers,
+        Duration = 3
+    })
+end
+
+-- **Start Player Tracking**
+startPlayerCounter()
+
+-- **Create the UI Button for Checking Players**
+local function createUI()
+    local button = Instance.new("TextButton", game.CoreGui)
+    button.Size = UDim2.new(0, 50, 0, 50)
+    button.Position = UDim2.new(0.85, 0, 0.1, 0)
+    button.Text = ""
+    button.MouseButton1Click:Connect(showPlayerCount)
+end
+
+createUI()
