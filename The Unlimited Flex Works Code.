@@ -12,9 +12,8 @@ local isPlaying = false
 local noclipEnabled = false
 local executedPlayers = {} -- Stores players who executed the script
 
--- Create a BindableEvent for Sound Sharing (Client-to-Client)
-local soundEvent = replicatedStorage:FindFirstChild("FlexworksSoundEvent") or Instance.new("BindableEvent", replicatedStorage)
-soundEvent.Name = "FlexworksSoundEvent"
+-- DataStore-like system (acts like MessagingService)
+local globalSoundList = {}
 
 -- Debugging function (prints to console)
 local function debugMessage(msg)
@@ -98,46 +97,68 @@ local function playAnimation()
     return 3 -- Default to 3 seconds if animation fails
 end
 
--- Function to Play Audio and Make It Global
+-- Function to Play Audio and Broadcast to Other Script Users
 local function playAudio()
-    debugMessage("Triggering Sound Event for All Script Users")
-    soundEvent:Fire() -- Broadcast to all script users
+    debugMessage("Broadcasting Sound to All Script Users")
+
+    -- Add player to the global list of sound triggers
+    table.insert(globalSoundList, player.UserId)
+
+    -- Notify all script users (loops every 0.2s to simulate live data sync)
+    task.spawn(function()
+        for _, p in pairs(players:GetPlayers()) do
+            if p ~= player then
+                p:SetAttribute("FlexworksSound", true)
+            end
+        end
+        wait(0.2)
+        for _, p in pairs(players:GetPlayers()) do
+            p:SetAttribute("FlexworksSound", false)
+        end
+    end)
 end
 
--- Listen for Sound Event (Triggers Sound for All Script Users)
-soundEvent.Event:Connect(function()
-    local character = player.Character
-    if not character then return end
+-- Loop that Listens for Other Script Users Playing Sound
+task.spawn(function()
+    while true do
+        for _, p in pairs(players:GetPlayers()) do
+            if p:GetAttribute("FlexworksSound") then
+                local character = p.Character
+                if not character then return end
 
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                if not humanoidRootPart then return end
 
-    debugMessage("Playing Global Audio")
+                debugMessage("Detected Another Player Using Flexworks")
 
-    -- Remove old sounds if they exist
-    if humanoidRootPart:FindFirstChild("FlexworksSound") then
-        humanoidRootPart:FindFirstChild("FlexworksSound"):Destroy()
-    end
+                -- Remove old sounds if they exist
+                if humanoidRootPart:FindFirstChild("FlexworksSound") then
+                    humanoidRootPart:FindFirstChild("FlexworksSound"):Destroy()
+                end
 
-    -- Attach a new sound object to the HumanoidRootPart
-    local soundFolder = humanoidRootPart:FindFirstChild("SoundFolder") or Instance.new("Folder", humanoidRootPart)
-    soundFolder.Name = "SoundFolder"
-    soundFolder.Parent = humanoidRootPart
+                -- Attach a new sound object to the HumanoidRootPart
+                local soundFolder = humanoidRootPart:FindFirstChild("SoundFolder") or Instance.new("Folder", humanoidRootPart)
+                soundFolder.Name = "SoundFolder"
+                soundFolder.Parent = humanoidRootPart
 
-    local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+                local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
 
-    for _, id in pairs(audioIDs) do
-        local sound = Instance.new("Sound")
-        sound.Name = "FlexworksSound"
-        sound.SoundId = "rbxassetid://" .. id
-        sound.Volume = 2
-        sound.Looped = false
-        sound.RollOffMode = Enum.RollOffMode.Linear
-        sound.MaxDistance = 150 -- Adjust as needed
-        sound.Parent = soundFolder
-        sound:Play()
+                for _, id in pairs(audioIDs) do
+                    local sound = Instance.new("Sound")
+                    sound.Name = "FlexworksSound"
+                    sound.SoundId = "rbxassetid://" .. id
+                    sound.Volume = 2
+                    sound.Looped = false
+                    sound.RollOffMode = Enum.RollOffMode.Linear
+                    sound.MaxDistance = 150 -- Adjust as needed
+                    sound.Parent = soundFolder
+                    sound:Play()
 
-        debugMessage("Playing sound: " .. id)
+                    debugMessage("Playing sound: " .. id)
+                end
+            end
+        end
+        wait(0.1) -- Reduce CPU usage while still keeping it responsive
     end
 end)
 
@@ -221,3 +242,4 @@ local function createUI()
 end
 
 createUI()
+-- im fucking done if this doesnt work im gonna kms
