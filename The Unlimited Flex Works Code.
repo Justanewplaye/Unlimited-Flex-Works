@@ -4,6 +4,7 @@ local backpack = player:FindFirstChild("Backpack")
 local starterGear = player:FindFirstChild("StarterGear")
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
 
 local soundFolder = nil
 local track = nil
@@ -40,9 +41,11 @@ local function playAnimation()
 
     if humanoid then
         local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+        animator.Parent = humanoid -- Ensure animator is attached to humanoid
+
         local animation = Instance.new("Animation")
         animation.AnimationId = "rbxassetid://77727115892579"
-        track = humanoid:LoadAnimation(animation)
+        local track = animator:LoadAnimation(animation)
         track:Play()
 
         return track.Length -- Returns animation duration
@@ -53,28 +56,25 @@ end
 
 -- Function to Play Audio for All Executed Users
 local function playAudio()
-    flexworksEvent:Fire() -- Notify only script users to play sound
-end
+    for _, user in pairs(executedPlayers) do
+        if user and user.Character then
+            local character = user.Character
+            local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
+            soundFolder.Name = "SoundFolder"
 
--- Local Event Listener for Script Users to Hear Each Other's Sounds
-flexworksEvent.Event:Connect(function()
-    local character = player.Character
-    if character then
-        local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
-        soundFolder.Name = "SoundFolder"
+            local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
 
-        local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
-
-        for _, id in pairs(audioIDs) do
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://" .. id
-            sound.Volume = 2
-            sound.Looped = false
-            sound.Parent = soundFolder
-            sound:Play()
+            for _, id in pairs(audioIDs) do
+                local sound = Instance.new("Sound")
+                sound.SoundId = "rbxassetid://" .. id
+                sound.Volume = 2
+                sound.Looped = false
+                sound.Parent = soundFolder
+                sound:Play()
+            end
         end
     end
-end)
+end
 
 -- Tool Equipped Function (Prevents Spam)
 tool.Equipped:Connect(function()
@@ -93,7 +93,7 @@ tool.Equipped:Connect(function()
 end)
 
 -- Ensure the Tool is Always in Slot 8
-game:GetService("RunService").Stepped:Connect(function()
+runService.Stepped:Connect(function()
     if backpack and backpack:FindFirstChild(tool.Name) then
         local tools = backpack:GetChildren()
         if #tools >= 8 then
@@ -106,6 +106,16 @@ game:GetService("RunService").Stepped:Connect(function()
         end
     end
 end)
+
+-- Function to Refresh Players Automatically Without Lagging
+local function refreshExecutors()
+    executedPlayers = {} -- Clear existing players
+    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+        if v:FindFirstChild("Backpack") and v.Backpack:FindFirstChild("Unlimited Flexworks") then
+            table.insert(executedPlayers, v)
+        end
+    end
+end
 
 -- Ensure Tool Persists After Reset
 player.CharacterAdded:Connect(function()
@@ -135,10 +145,18 @@ player.CharacterAdded:Connect(function()
             Duration = 3
         })
     end
+
+    refreshExecutors() -- Automatically refresh executor list after reset
 end)
+
+-- Function to Force Reset the Player
+local function forceReset()
+    player.Character:BreakJoints() -- Forces reset
+end
 
 -- Function to Count Players with Script
 local function countExecutors()
+    refreshExecutors() -- Ensures updated list before counting
     return #executedPlayers
 end
 
@@ -151,15 +169,20 @@ local function createUI()
     button.Size = UDim2.new(0, 50, 0, 50) -- Circular size
     button.Position = UDim2.new(0.85, 0, 0.1, 0) -- Adjust position
     button.BackgroundTransparency = 0.5 -- Semi-transparent
+    button.BackgroundColor3 = Color3.new(0, 0, 0) -- Black outline effect
     button.Text = "" -- No text
-    button.BorderSizePixel = 2 -- Outline thickness
-    button.BorderColor3 = Color3.new(0, 0, 0) -- Black outline
     button.Parent = screenGui
 
     -- Make it a circular button
     local uiCorner = Instance.new("UICorner")
     uiCorner.CornerRadius = UDim.new(1, 0) -- Full circle
     uiCorner.Parent = button
+
+    -- Outer border effect
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Thickness = 2
+    uiStroke.Color = Color3.new(1, 1, 1) -- White outline for visibility
+    uiStroke.Parent = button
 
     -- Refresh Functionality
     local function refreshCount()
@@ -177,10 +200,12 @@ local function createUI()
     userInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.KeyCode == Enum.KeyCode.End and not gameProcessed then
             refreshCount()
+        elseif input.KeyCode == Enum.KeyCode.F5 and not gameProcessed then
+            forceReset() -- Pressing F5 forces reset
         end
     end)
 end
 
 -- Create the UI Button
 createUI()
--- github hates to see me coming
+-- i fucking give up updating this shit
