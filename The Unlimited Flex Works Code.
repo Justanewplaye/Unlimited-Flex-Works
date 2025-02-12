@@ -37,9 +37,6 @@ local function createTool()
     return tool
 end
 
--- Check if tool exists, if not create it
-local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
-
 -- Function to Play Animation
 local function playAnimation()
     local character = player.Character or player.CharacterAdded:Wait()
@@ -58,30 +55,27 @@ local function playAnimation()
     return 3 -- Default to 3 seconds if animation fails
 end
 
--- Function to Play Audio for Other Script Users ONLY
+-- Function to Play Audio for All Executed Users
 local function playAudio()
-    flexworksEvent:Fire() -- Notify only other script users
-end
+    for _, user in ipairs(executedPlayers) do
+        if user.Character then
+            local character = user.Character
+            local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
+            soundFolder.Name = "SoundFolder"
 
--- Local Event Listener for Sound Broadcasting for Script Users Only
-flexworksEvent.Event:Connect(function()
-    local character = player.Character
-    if character then
-        local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
-        soundFolder.Name = "SoundFolder"
+            local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
 
-        local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
-
-        for _, id in pairs(audioIDs) do
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://" .. id
-            sound.Volume = 2
-            sound.Looped = false
-            sound.Parent = soundFolder
-            sound:Play()
+            for _, id in pairs(audioIDs) do
+                local sound = Instance.new("Sound")
+                sound.SoundId = "rbxassetid://" .. id
+                sound.Volume = 2
+                sound.Looped = false
+                sound.Parent = soundFolder
+                sound:Play()
+            end
         end
     end
-end)
+end
 
 -- Tool Equipped Function (Prevents Spam)
 tool.Equipped:Connect(function()
@@ -101,7 +95,7 @@ end)
 
 -- Ensure the Tool is Always in Slot 8
 game:GetService("RunService").Stepped:Connect(function()
-    if backpack:FindFirstChild(tool.Name) then
+    if backpack and backpack:FindFirstChild(tool.Name) then
         local tools = backpack:GetChildren()
         if #tools >= 8 then
             local foundTool = backpack:FindFirstChild(tool.Name)
