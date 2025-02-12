@@ -1,0 +1,181 @@
+-- Define Services and Player
+local player = game:GetService("Players").LocalPlayer
+local backpack = player:FindFirstChild("Backpack")
+local starterGear = player:FindFirstChild("StarterGear")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local userInputService = game:GetService("UserInputService")
+
+local soundFolder = nil
+local track = nil
+local isPlaying = false
+local executedPlayers = {} -- Stores players who executed the script
+
+-- Create a BindableEvent for Flexworks users only
+local flexworksEvent
+
+if replicatedStorage:FindFirstChild("FlexworksExclusive") then
+    flexworksEvent = replicatedStorage:FindFirstChild("FlexworksExclusive")
+else
+    flexworksEvent = Instance.new("BindableEvent")
+    flexworksEvent.Name = "FlexworksExclusive"
+    flexworksEvent.Parent = replicatedStorage
+end
+
+-- Function to Create and Store the Tool Persistently
+local function createTool()
+    local tool = Instance.new("Tool")
+    tool.Name = "Unlimited Flexworks"
+    tool.RequiresHandle = false
+    tool.Parent = backpack
+
+    -- Ensure the tool is stored in StarterGear (persists after resets)
+    if starterGear then
+        local clonedTool = tool:Clone()
+        clonedTool.Parent = starterGear
+    end
+
+    return tool
+end
+
+-- Check if tool exists, if not create it
+local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
+
+-- Function to Play Animation
+local function playAnimation()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://77727115892579"
+        track = humanoid:LoadAnimation(animation)
+        track:Play()
+
+        return track.Length -- Returns animation duration
+    end
+
+    return 3 -- Default to 3 seconds if animation fails
+end
+
+-- Function to Play Audio for Other Script Users ONLY
+local function playAudio()
+    flexworksEvent:Fire() -- Notify only other script users
+end
+
+-- Local Event Listener for Sound Broadcasting for Script Users Only
+flexworksEvent.Event:Connect(function()
+    local character = player.Character
+    if character then
+        local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
+        soundFolder.Name = "SoundFolder"
+
+        local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+
+        for _, id in pairs(audioIDs) do
+            local sound = Instance.new("Sound")
+            sound.SoundId = "rbxassetid://" .. id
+            sound.Volume = 2
+            sound.Looped = false
+            sound.Parent = soundFolder
+            sound:Play()
+        end
+    end
+end)
+
+-- Tool Equipped Function (Prevents Spam)
+tool.Equipped:Connect(function()
+    if isPlaying then return end
+
+    isPlaying = true
+    tool.Parent = backpack
+
+    local duration = playAnimation()
+    playAudio()
+
+    task.spawn(function()
+        wait(duration)
+        isPlaying = false
+    end)
+end)
+
+-- Ensure the Tool is Always in Slot 8
+game:GetService("RunService").Stepped:Connect(function()
+    if backpack:FindFirstChild(tool.Name) then
+        local tools = backpack:GetChildren()
+        if #tools >= 8 then
+            local foundTool = backpack:FindFirstChild(tool.Name)
+            if foundTool then
+                foundTool.Parent = player.Character
+                wait(0.1)
+                foundTool.Parent = backpack
+            end
+        end
+    end
+end)
+
+-- Ensure Tool Persists After Reset
+player.CharacterAdded:Connect(function()
+    wait(1)
+    backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
+    starterGear = player:FindFirstChild("StarterGear")
+
+    if not backpack:FindFirstChild("Unlimited Flexworks") then
+        createTool().Parent = backpack
+    end
+
+    -- Add Player to Execution List
+    if not table.find(executedPlayers, player) then
+        table.insert(executedPlayers, player)
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Unlimited Flexworks",
+            Text = "Another user has executed the script!",
+            Duration = 3
+        })
+    end
+end)
+
+-- Function to Count Players with Script
+local function countExecutors()
+    return #executedPlayers
+end
+
+-- Create a Circular Transparent UI Button
+local function createUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Parent = game.CoreGui
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 50, 0, 50) -- Circular size
+    button.Position = UDim2.new(0.85, 0, 0.1, 0) -- Adjust position
+    button.BackgroundTransparency = 1 -- Fully transparent
+    button.Text = "" -- No text
+    button.Parent = screenGui
+
+    -- Make it a circular button
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(1, 0) -- Full circle
+    uiCorner.Parent = button
+
+    -- Refresh Functionality
+    local function refreshCount()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Flexworks Users",
+            Text = "Users with script: " .. countExecutors(),
+            Duration = 3
+        })
+    end
+
+    -- Button Press (Mobile)
+    button.MouseButton1Click:Connect(refreshCount)
+
+    -- PC Keybind (END Key)
+    userInputService.InputBegan:Connect(function(input, gameProcessed)
+        if input.KeyCode == Enum.KeyCode.End and not gameProcessed then
+            refreshCount()
+        end
+    end)
+end
+
+-- Create the UI Button
+createUI()
