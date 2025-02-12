@@ -4,231 +4,136 @@ local runService = game:GetService("RunService")
 local userInputService = game:GetService("UserInputService")
 
 local player = players.LocalPlayer
-local backpack = player:FindFirstChild("Backpack")
-local starterGear = player:FindFirstChild("StarterGear")
-
 local isPlaying = false
-local noclipEnabled = false
-local executedPlayers = {} -- Tracks players with the script
+local animationTrack = nil -- Store animation to reload after hit
+local soundInstances = {} -- Track active sound instances
+local tool = nil -- Ensure tool is globally referenced
 
 -- Tool Name & Version System
 local TOOL_NAME = "Unlimited Flexworks"
 local TOOL_VERSION = "1.6" -- Change this when updating
 
--- Debugging function
-local function debugMessage(msg)
-    print("[Flexworks Debug]: " .. msg)
-end
-
-debugMessage("Script Started")
-
--- **Function to Check if Tool is Outdated**
-local function isToolOutdated(existingTool)
-    if existingTool and existingTool:FindFirstChild("Version") then
-        return existingTool.Version.Value ~= TOOL_VERSION
-    end
-    return true -- If no version data, assume outdated
-end
-
 -- **Function to Remove Outdated Tools & Keep Latest Version**
 local function removeOutdatedTools()
-    for _, item in pairs(backpack:GetChildren()) do
-        if item:IsA("Tool") and item.Name == TOOL_NAME and isToolOutdated(item) then
-            item:Destroy() -- Remove outdated tool
+    local backpack = player:FindFirstChild("Backpack")
+    local starterGear = player:FindFirstChild("StarterGear")
+    
+    if backpack then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") and item.Name == TOOL_NAME then
+                item:Destroy()
+            end
         end
     end
-    for _, item in pairs(starterGear:GetChildren()) do
-        if item:IsA("Tool") and item.Name == TOOL_NAME and isToolOutdated(item) then
-            item:Destroy() -- Remove outdated tool from StarterGear
+    
+    if starterGear then
+        for _, item in pairs(starterGear:GetChildren()) do
+            if item:IsA("Tool") and item.Name == TOOL_NAME then
+                item:Destroy()
+            end
         end
     end
 end
 
 -- **Function to Create and Store the Tool Persistently**
 local function createTool()
-    -- Check if the tool already exists in Backpack or StarterGear
-    local existingTool = backpack:FindFirstChild(TOOL_NAME) or starterGear:FindFirstChild(TOOL_NAME)
-
-    if existingTool then
-        return existingTool -- Tool already exists, no need to create another
-    end
-
-    -- Create a new tool
-    local tool = Instance.new("Tool")
+    local backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
+    local starterGear = player:FindFirstChild("StarterGear") or player:WaitForChild("StarterGear")
+    
+    if not backpack then return end
+    
+    removeOutdatedTools()
+    
+    tool = Instance.new("Tool")
     tool.Name = TOOL_NAME
     tool.RequiresHandle = false
-
-    local versionTag = Instance.new("StringValue")
-    versionTag.Name = "Version"
-    versionTag.Value = TOOL_VERSION
-    versionTag.Parent = tool
-
-    -- Parent tool to Backpack and StarterGear to persist through resets
     tool.Parent = backpack
-
+    
     if starterGear then
         local clonedTool = tool:Clone()
         clonedTool.Parent = starterGear
     end
-
+    
     return tool
 end
 
--- Ensure the tool exists on script execution
-local tool = createTool()
--- **Function to Enable Noclip**
-local function enableNoclip()
-    noclipEnabled = true
-    runService.Stepped:Connect(function()
-        if noclipEnabled and player.Character then
-            for _, part in pairs(player.Character:GetChildren()) do
-                if part:IsA("BasePart") and part.CanCollide then
-                    part.CanCollide = false
-                end
-            end
+-- **Function to Stop All Sounds and Reload Animation**
+local function stopAllAudioAndReloadAnimation()
+    for _, sound in pairs(soundInstances) do
+        if sound then
+            sound:Stop()
+            sound:Destroy()
         end
-    end)
-end
-
--- **Function to Disable Noclip**
-local function disableNoclip()
-    noclipEnabled = false
-    if player.Character then
-        for _, part in pairs(player.Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
-        end
+    end
+    soundInstances = {} -- Clear stored sounds
+    if animationTrack then
+        animationTrack:Stop()
     end
 end
 
--- **Function to Play Animation with Noclip**
+-- **Function to Play Animation**
 local function playAnimation()
     local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
     if humanoid then
         local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
         animator.Parent = humanoid
-
+        
         local animation = Instance.new("Animation")
         animation.AnimationId = "rbxassetid://77727115892579"
-        local track = animator:LoadAnimation(animation)
-
-        enableNoclip() -- Enable noclip before playing the animation
-        track:Play()
-        debugMessage("Animation Played with Noclip")
-
-        task.spawn(function()
-            wait(track.Length) -- Wait until animation ends
-            disableNoclip() -- Disable noclip after animation finishes
-            debugMessage("Noclip Disabled")
-        end)
-
-        return track.Length -- Returns animation duration
+        animationTrack = animator:LoadAnimation(animation)
+        
+        animationTrack.Priority = Enum.AnimationPriority.Action
+        animationTrack.Looped = false
+        animationTrack:Play()
+        return animationTrack.Length
     end
-
-    debugMessage("Animation Failed to Play")
-    return 3 -- Default to 3 seconds if animation fails
+    
+    return 3 -- Default duration if animation fails
 end
 
--- **Function to Play Audio**
+-- **Function to Play Audio (Client-Sided on Screen)**
 local function playAudio()
-    debugMessage("Playing sound")
-
-    local character = player.Character
-    if not character then return end
-
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-
-    -- Remove old sounds if they exist
-    if humanoidRootPart:FindFirstChild("FlexworksSound") then
-        humanoidRootPart:FindFirstChild("FlexworksSound"):Destroy()
-    end
-
-    -- Attach a new sound object to the HumanoidRootPart
-    local soundFolder = humanoidRootPart:FindFirstChild("SoundFolder") or Instance.new("Folder", humanoidRootPart)
-    soundFolder.Name = "SoundFolder"
-    soundFolder.Parent = humanoidRootPart
-
     local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
-
+    
     for _, id in pairs(audioIDs) do
         local sound = Instance.new("Sound")
-        sound.Name = "FlexworksSound"
         sound.SoundId = "rbxassetid://" .. id
         sound.Volume = 2
         sound.Looped = false
-        sound.RollOffMode = Enum.RollOffMode.Linear
-        sound.MaxDistance = 150 -- Adjust as needed
-        sound.Parent = soundFolder
+        sound.Parent = game:GetService("SoundService") -- Play audio globally for client, no position
         sound:Play()
-
-        debugMessage("Playing sound: " .. id)
+        table.insert(soundInstances, sound)
     end
 end
 
--- **Tool Equipped Function (Prevents Spam)**
-tool.Equipped:Connect(function()
-    if isPlaying then return end
-
-    isPlaying = true
-    tool.Parent = backpack
-
-    local duration = playAnimation()
-    playAudio() -- Play sound
-
-    task.spawn(function()
-        wait(duration)
-        isPlaying = false
-    end)
-end)
-
--- **Function to Track Script Users in Real-Time**
-local function updateExecutedPlayers()
-    executedPlayers = {} -- Reset list
-
-    for _, p in pairs(players:GetPlayers()) do
-        if p:GetAttribute("HasFlexworks") then
-            table.insert(executedPlayers, p)
-        end
+-- **Function to Setup Tool Equipped Behavior**
+local function setupTool()
+    if tool then
+        tool.Equipped:Connect(function()
+            if isPlaying then return end
+            isPlaying = true
+            stopAllAudioAndReloadAnimation() -- Stop all sounds if another animation is playing
+            local duration = playAnimation()
+            playAudio()
+            task.wait(duration)
+            isPlaying = false
+        end)
     end
 end
 
--- **Function to Refresh Player Count (Auto Updates Every 0.5s)**
-local function startPlayerCounter()
-    player:SetAttribute("HasFlexworks", true) -- Mark this player as a script user
-
-    task.spawn(function()
-        while true do
-            updateExecutedPlayers()
-            wait(0.5) -- Update every 0.5 seconds
-        end
+-- Ensure the tool persists after respawn
+local function ensureToolPersistence()
+    player.CharacterAdded:Connect(function()
+        wait(1) -- Wait for character to fully load
+        tool = createTool()
+        setupTool()
     end)
 end
 
--- **Function to Show Player Count in UI**
-local function showPlayerCount()
-    updateExecutedPlayers() -- Ensure the latest data
-
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "Flexworks Users",
-        Text = "Users with script: " .. #executedPlayers,
-        Duration = 3
-    })
-end
-
--- **Start Player Tracking**
-startPlayerCounter()
-
--- **Create the UI Button for Checking Players**
-local function createUI()
-    local button = Instance.new("TextButton", game.CoreGui)
-    button.Size = UDim2.new(0, 50, 0, 50)
-    button.Position = UDim2.new(0.85, 0, 0.1, 0)
-    button.Text = ""
-    button.MouseButton1Click:Connect(showPlayerCount)
-end
-
-createUI()
+-- Ensure the tool exists at script execution
+tool = createTool()
+setupTool()
+ensureToolPersistence()
+-- FINAL FUCKING UPDATE FUCK YOU GITHUB FOR NOT ALLOWING ME TO UPDATE THIS SHIT
