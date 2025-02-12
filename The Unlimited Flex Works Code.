@@ -1,6 +1,5 @@
--- Define Services and Player
+-- Define Services
 local players = game:GetService("Players")
-local replicatedStorage = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
 local userInputService = game:GetService("UserInputService")
 
@@ -10,23 +9,74 @@ local starterGear = player:FindFirstChild("StarterGear")
 
 local isPlaying = false
 local noclipEnabled = false
-local executedPlayers = {} -- Stores players who executed the script
+local executedPlayers = {} -- Tracks players with the script
 
--- DataStore-like system (acts like MessagingService)
-local globalSoundList = {}
+-- Tool Name & Version System
+local TOOL_NAME = "Unlimited Flexworks"
+local TOOL_VERSION = "1.5" -- Update this version when you change the script
 
--- Debugging function (prints to console)
+-- Debugging function
 local function debugMessage(msg)
     print("[Flexworks Debug]: " .. msg)
 end
 
 debugMessage("Script Started")
 
+-- **Function to Check if Tool is Outdated**
+local function isToolOutdated(existingTool)
+    if existingTool and existingTool:FindFirstChild("Version") then
+        return existingTool.Version.Value ~= TOOL_VERSION
+    end
+    return true -- If no version data, assume outdated
+end
+
+-- **Function to Remove Outdated Tools & Keep Latest Version**
+local function removeOutdatedTools()
+    for _, item in pairs(backpack:GetChildren()) do
+        if item:IsA("Tool") and item.Name == TOOL_NAME and isToolOutdated(item) then
+            item:Destroy() -- Remove outdated tool
+        end
+    end
+    for _, item in pairs(starterGear:GetChildren()) do
+        if item:IsA("Tool") and item.Name == TOOL_NAME and isToolOutdated(item) then
+            item:Destroy() -- Remove outdated tool from StarterGear
+        end
+    end
+end
+
 -- Function to Create and Store the Tool Persistently
 local function createTool()
+    local existingTool = backpack:FindFirstChild(TOOL_NAME)
+    
+    if existingTool and not isToolOutdated(existingTool) then
+        debugMessage("No new updates found. Tool remains unchanged.")
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Flexworks Tool",
+            Text = "No new updates found. Tool remains unchanged.",
+            Duration = 3
+        })
+        return existingTool -- Keep existing tool if it's already up-to-date
+    end
+
+    -- Remove outdated tools before adding the new one
+    removeOutdatedTools()
+
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Flexworks Tool",
+        Text = "New updated tool detected! Updating now...",
+        Duration = 3
+    })
+
+    -- Create new tool with version number
     local tool = Instance.new("Tool")
-    tool.Name = "Unlimited Flexworks"
+    tool.Name = TOOL_NAME
     tool.RequiresHandle = false
+    
+    local versionTag = Instance.new("StringValue")
+    versionTag.Name = "Version"
+    versionTag.Value = TOOL_VERSION
+    versionTag.Parent = tool
+
     tool.Parent = backpack
 
     -- Ensure the tool is stored in StarterGear (persists after resets)
@@ -39,7 +89,7 @@ local function createTool()
 end
 
 -- Ensure the tool exists
-local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
+local tool = createTool()
 
 -- Function to Enable Noclip
 local function enableNoclip()
@@ -97,70 +147,42 @@ local function playAnimation()
     return 3 -- Default to 3 seconds if animation fails
 end
 
--- Function to Play Audio and Broadcast to Other Script Users
+-- Function to Play Audio
 local function playAudio()
-    debugMessage("Broadcasting Sound to All Script Users")
+    debugMessage("Playing sound")
 
-    -- Add player to the global list of sound triggers
-    table.insert(globalSoundList, player.UserId)
+    local character = player.Character
+    if not character then return end
 
-    -- Notify all script users (loops every 0.2s to simulate live data sync)
-    task.spawn(function()
-        for _, p in pairs(players:GetPlayers()) do
-            if p ~= player then
-                p:SetAttribute("FlexworksSound", true)
-            end
-        end
-        wait(0.2)
-        for _, p in pairs(players:GetPlayers()) do
-            p:SetAttribute("FlexworksSound", false)
-        end
-    end)
-end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
 
--- Loop that Listens for Other Script Users Playing Sound
-task.spawn(function()
-    while true do
-        for _, p in pairs(players:GetPlayers()) do
-            if p:GetAttribute("FlexworksSound") then
-                local character = p.Character
-                if not character then return end
-
-                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-                if not humanoidRootPart then return end
-
-                debugMessage("Detected Another Player Using Flexworks")
-
-                -- Remove old sounds if they exist
-                if humanoidRootPart:FindFirstChild("FlexworksSound") then
-                    humanoidRootPart:FindFirstChild("FlexworksSound"):Destroy()
-                end
-
-                -- Attach a new sound object to the HumanoidRootPart
-                local soundFolder = humanoidRootPart:FindFirstChild("SoundFolder") or Instance.new("Folder", humanoidRootPart)
-                soundFolder.Name = "SoundFolder"
-                soundFolder.Parent = humanoidRootPart
-
-                local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
-
-                for _, id in pairs(audioIDs) do
-                    local sound = Instance.new("Sound")
-                    sound.Name = "FlexworksSound"
-                    sound.SoundId = "rbxassetid://" .. id
-                    sound.Volume = 2
-                    sound.Looped = false
-                    sound.RollOffMode = Enum.RollOffMode.Linear
-                    sound.MaxDistance = 150 -- Adjust as needed
-                    sound.Parent = soundFolder
-                    sound:Play()
-
-                    debugMessage("Playing sound: " .. id)
-                end
-            end
-        end
-        wait(0.1) -- Reduce CPU usage while still keeping it responsive
+    -- Remove old sounds if they exist
+    if humanoidRootPart:FindFirstChild("FlexworksSound") then
+        humanoidRootPart:FindFirstChild("FlexworksSound"):Destroy()
     end
-end)
+
+    -- Attach a new sound object to the HumanoidRootPart
+    local soundFolder = humanoidRootPart:FindFirstChild("SoundFolder") or Instance.new("Folder", humanoidRootPart)
+    soundFolder.Name = "SoundFolder"
+    soundFolder.Parent = humanoidRootPart
+
+    local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+
+    for _, id in pairs(audioIDs) do
+        local sound = Instance.new("Sound")
+        sound.Name = "FlexworksSound"
+        sound.SoundId = "rbxassetid://" .. id
+        sound.Volume = 2
+        sound.Looped = false
+        sound.RollOffMode = Enum.RollOffMode.Linear
+        sound.MaxDistance = 150 -- Adjust as needed
+        sound.Parent = soundFolder
+        sound:Play()
+
+        debugMessage("Playing sound: " .. id)
+    end
+end
 
 -- Tool Equipped Function (Prevents Spam)
 tool.Equipped:Connect(function()
@@ -170,7 +192,7 @@ tool.Equipped:Connect(function()
     tool.Parent = backpack
 
     local duration = playAnimation()
-    playAudio() -- Trigger sound for all script users
+    playAudio() -- Play sound
 
     task.spawn(function()
         wait(duration)
@@ -178,68 +200,13 @@ tool.Equipped:Connect(function()
     end)
 end)
 
--- Function to Refresh Players Automatically Without Lagging
-local function refreshExecutors()
-    executedPlayers = {} -- Clear existing players
-    for _, v in pairs(players:GetPlayers()) do
-        if v:FindFirstChild("Backpack") and v.Backpack:FindFirstChild("Unlimited Flexworks") then
-            table.insert(executedPlayers, v)
-        end
-    end
-end
-
 -- Ensure Tool Persists After Reset
 player.CharacterAdded:Connect(function()
     wait(1)
     backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
     starterGear = player:FindFirstChild("StarterGear")
 
-    if not backpack:FindFirstChild("Unlimited Flexworks") then
-        createTool().Parent = backpack
-    end
-
-    refreshExecutors() -- Automatically refresh executor list after reset
+    -- Check for outdated versions and update if necessary
+    removeOutdatedTools()
+    createTool().Parent = backpack
 end)
-
--- Function to Count Players with Script
-local function countExecutors()
-    refreshExecutors()
-    return #executedPlayers
-end
-
--- UI Button for Checking Users with Script
-local function createUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Parent = game.CoreGui
-
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 50, 0, 50)
-    button.Position = UDim2.new(0.85, 0, 0.1, 0)
-    button.BackgroundTransparency = 0.5
-    button.BackgroundColor3 = Color3.new(0, 0, 0)
-    button.Text = ""
-    button.Parent = screenGui
-
-    local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = UDim.new(1, 0)
-    uiCorner.Parent = button
-
-    local function refreshCount()
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Flexworks Users",
-            Text = "Users with script: " .. countExecutors(),
-            Duration = 3
-        })
-    end
-
-    button.MouseButton1Click:Connect(refreshCount)
-
-    userInputService.InputBegan:Connect(function(input, gameProcessed)
-        if input.KeyCode == Enum.KeyCode.End and not gameProcessed then
-            refreshCount()
-        end
-    end)
-end
-
-createUI()
--- im fucking done if this doesnt work im gonna kms
