@@ -6,14 +6,46 @@ local replicatedStorage = game:GetService("ReplicatedStorage")
 local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 
-local soundFolder = nil
-local track = nil
 local isPlaying = false
+local noclipEnabled = false
 local executedPlayers = {} -- Stores players who executed the script
+
+-- Debugging function (prints to console)
+local function debugMessage(msg)
+    print("[Flexworks Debug]: " .. msg)
+end
+
+debugMessage("Script Started")
 
 -- Create a BindableEvent for Flexworks users only
 local flexworksEvent = replicatedStorage:FindFirstChild("FlexworksExclusive") or Instance.new("BindableEvent", replicatedStorage)
 flexworksEvent.Name = "FlexworksExclusive"
+
+-- Function to Enable Noclip
+local function enableNoclip()
+    noclipEnabled = true
+    runService.Stepped:Connect(function()
+        if noclipEnabled and player.Character then
+            for _, part in pairs(player.Character:GetChildren()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+-- Function to Disable Noclip
+local function disableNoclip()
+    noclipEnabled = false
+    if player.Character then
+        for _, part in pairs(player.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
 
 -- Function to Create and Store the Tool Persistently
 local function createTool()
@@ -34,47 +66,77 @@ end
 -- Ensure the tool exists
 local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
 
--- Function to Play Animation
+-- Function to Play Animation with Noclip
 local function playAnimation()
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
 
     if humanoid then
         local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-        animator.Parent = humanoid -- Ensure animator is attached to humanoid
+        animator.Parent = humanoid
 
         local animation = Instance.new("Animation")
         animation.AnimationId = "rbxassetid://77727115892579"
         local track = animator:LoadAnimation(animation)
+
+        enableNoclip() -- Enable noclip before playing the animation
         track:Play()
+        debugMessage("Animation Played with Noclip")
+
+        task.spawn(function()
+            wait(track.Length) -- Wait until animation ends
+            disableNoclip() -- Disable noclip after animation finishes
+            debugMessage("Noclip Disabled")
+        end)
 
         return track.Length -- Returns animation duration
     end
 
+    debugMessage("Animation Failed to Play")
     return 3 -- Default to 3 seconds if animation fails
 end
 
--- Function to Play Audio for All Executed Users
+-- Function to Play Audio and Make It Follow the Player
 local function playAudio()
-    for _, user in pairs(executedPlayers) do
-        if user and user.Character then
-            local character = user.Character
-            local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
-            soundFolder.Name = "SoundFolder"
+    local character = player.Character
+    if not character then return end
 
-            local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
 
-            for _, id in pairs(audioIDs) do
-                local sound = Instance.new("Sound")
-                sound.SoundId = "rbxassetid://" .. id
-                sound.Volume = 2
-                sound.Looped = false
-                sound.Parent = soundFolder
-                sound:Play()
-            end
-        end
+    debugMessage("Playing Audio")
+
+    -- Remove old sounds if they exist
+    if humanoidRootPart:FindFirstChild("FlexworksSound") then
+        humanoidRootPart:FindFirstChild("FlexworksSound"):Destroy()
+    end
+
+    -- Attach a new sound object to the HumanoidRootPart
+    local soundFolder = humanoidRootPart:FindFirstChild("SoundFolder") or Instance.new("Folder", humanoidRootPart)
+    soundFolder.Name = "SoundFolder"
+    soundFolder.Parent = humanoidRootPart
+
+    local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+
+    for _, id in pairs(audioIDs) do
+        local sound = Instance.new("Sound")
+        sound.Name = "FlexworksSound"
+        sound.SoundId = "rbxassetid://" .. id
+        sound.Volume = 2
+        sound.Looped = false
+        sound.RollOffMode = Enum.RollOffMode.Linear -- Ensures sound moves with player
+        sound.MaxDistance = 100 -- Adjust as needed
+        sound.Parent = soundFolder
+        sound:Play()
+
+        debugMessage("Playing sound: " .. id)
     end
 end
+
+-- Sync Sound Across Script Users
+flexworksEvent.Event:Connect(function()
+    playAudio()
+end)
 
 -- Tool Equipped Function (Prevents Spam)
 tool.Equipped:Connect(function()
@@ -84,27 +146,12 @@ tool.Equipped:Connect(function()
     tool.Parent = backpack
 
     local duration = playAnimation()
-    playAudio()
+    flexworksEvent:Fire() -- Trigger sound for all script users
 
     task.spawn(function()
         wait(duration)
         isPlaying = false
     end)
-end)
-
--- Ensure the Tool is Always in Slot 8
-runService.Stepped:Connect(function()
-    if backpack and backpack:FindFirstChild(tool.Name) then
-        local tools = backpack:GetChildren()
-        if #tools >= 8 then
-            local foundTool = backpack:FindFirstChild(tool.Name)
-            if foundTool then
-                foundTool.Parent = player.Character
-                wait(0.1)
-                foundTool.Parent = backpack
-            end
-        end
-    end
 end)
 
 -- Function to Refresh Players Automatically Without Lagging
@@ -127,25 +174,6 @@ player.CharacterAdded:Connect(function()
         createTool().Parent = backpack
     end
 
-    -- Check if player is already in executedPlayers before adding them
-    local alreadyExists = false
-    for _, v in pairs(executedPlayers) do
-        if v == player then
-            alreadyExists = true
-            break
-        end
-    end
-
-    -- If player is new, add them to executedPlayers
-    if not alreadyExists then
-        table.insert(executedPlayers, player)
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Unlimited Flexworks",
-            Text = "Another user has executed the script!",
-            Duration = 3
-        })
-    end
-
     refreshExecutors() -- Automatically refresh executor list after reset
 end)
 
@@ -158,33 +186,30 @@ end
 local function countExecutors()
     refreshExecutors() -- Ensures updated list before counting
     return #executedPlayers
-end
+end -- **Fixed the misplaced `)` here**
 
--- Create a Circular Transparent UI Button with Black Outline
+-- Create the UI Button
 local function createUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Parent = game.CoreGui
 
     local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 50, 0, 50) -- Circular size
-    button.Position = UDim2.new(0.85, 0, 0.1, 0) -- Adjust position
-    button.BackgroundTransparency = 0.5 -- Semi-transparent
-    button.BackgroundColor3 = Color3.new(0, 0, 0) -- Black outline effect
-    button.Text = "" -- No text
+    button.Size = UDim2.new(0, 50, 0, 50)
+    button.Position = UDim2.new(0.85, 0, 0.1, 0)
+    button.BackgroundTransparency = 0.5
+    button.BackgroundColor3 = Color3.new(0, 0, 0)
+    button.Text = ""
     button.Parent = screenGui
 
-    -- Make it a circular button
     local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = UDim.new(1, 0) -- Full circle
+    uiCorner.CornerRadius = UDim.new(1, 0)
     uiCorner.Parent = button
 
-    -- Outer border effect
     local uiStroke = Instance.new("UIStroke")
     uiStroke.Thickness = 2
-    uiStroke.Color = Color3.new(1, 1, 1) -- White outline for visibility
+    uiStroke.Color = Color3.new(1, 1, 1)
     uiStroke.Parent = button
 
-    -- Refresh Functionality
     local function refreshCount()
         game.StarterGui:SetCore("SendNotification", {
             Title = "Flexworks Users",
@@ -193,19 +218,16 @@ local function createUI()
         })
     end
 
-    -- Button Press (Mobile)
     button.MouseButton1Click:Connect(refreshCount)
 
-    -- PC Keybind (END Key)
     userInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.KeyCode == Enum.KeyCode.End and not gameProcessed then
             refreshCount()
         elseif input.KeyCode == Enum.KeyCode.F5 and not gameProcessed then
-            forceReset() -- Pressing F5 forces reset
+            forceReset()
         end
     end)
 end
 
--- Create the UI Button
 createUI()
--- i fucking give up updating this shit
+-- Final update (maybe?) 
