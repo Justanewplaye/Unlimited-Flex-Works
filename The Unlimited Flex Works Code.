@@ -1,14 +1,20 @@
 -- Define Services and Player
-local player = game:GetService("Players").LocalPlayer
+local players = game:GetService("Players")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local runService = game:GetService("RunService")
+local userInputService = game:GetService("UserInputService")
+
+local player = players.LocalPlayer
 local backpack = player:FindFirstChild("Backpack")
 local starterGear = player:FindFirstChild("StarterGear")
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local userInputService = game:GetService("UserInputService")
-local runService = game:GetService("RunService")
 
 local isPlaying = false
 local noclipEnabled = false
 local executedPlayers = {} -- Stores players who executed the script
+
+-- Create a BindableEvent for Sound Sharing (Client-to-Client)
+local soundEvent = replicatedStorage:FindFirstChild("FlexworksSoundEvent") or Instance.new("BindableEvent", replicatedStorage)
+soundEvent.Name = "FlexworksSoundEvent"
 
 -- Debugging function (prints to console)
 local function debugMessage(msg)
@@ -17,9 +23,24 @@ end
 
 debugMessage("Script Started")
 
--- Create a BindableEvent for Flexworks users only
-local flexworksEvent = replicatedStorage:FindFirstChild("FlexworksExclusive") or Instance.new("BindableEvent", replicatedStorage)
-flexworksEvent.Name = "FlexworksExclusive"
+-- Function to Create and Store the Tool Persistently
+local function createTool()
+    local tool = Instance.new("Tool")
+    tool.Name = "Unlimited Flexworks"
+    tool.RequiresHandle = false
+    tool.Parent = backpack
+
+    -- Ensure the tool is stored in StarterGear (persists after resets)
+    if starterGear then
+        local clonedTool = tool:Clone()
+        clonedTool.Parent = starterGear
+    end
+
+    return tool
+end
+
+-- Ensure the tool exists
+local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
 
 -- Function to Enable Noclip
 local function enableNoclip()
@@ -46,25 +67,6 @@ local function disableNoclip()
         end
     end
 end
-
--- Function to Create and Store the Tool Persistently
-local function createTool()
-    local tool = Instance.new("Tool")
-    tool.Name = "Unlimited Flexworks"
-    tool.RequiresHandle = false
-    tool.Parent = backpack
-
-    -- Ensure the tool is stored in StarterGear (persists after resets)
-    if starterGear then
-        local clonedTool = tool:Clone()
-        clonedTool.Parent = starterGear
-    end
-
-    return tool
-end
-
--- Ensure the tool exists
-local tool = backpack:FindFirstChild("Unlimited Flexworks") or createTool()
 
 -- Function to Play Animation with Noclip
 local function playAnimation()
@@ -96,15 +98,21 @@ local function playAnimation()
     return 3 -- Default to 3 seconds if animation fails
 end
 
--- Function to Play Audio and Make It Follow the Player
+-- Function to Play Audio and Make It Global
 local function playAudio()
+    debugMessage("Triggering Sound Event for All Script Users")
+    soundEvent:Fire() -- Broadcast to all script users
+end
+
+-- Listen for Sound Event (Triggers Sound for All Script Users)
+soundEvent.Event:Connect(function()
     local character = player.Character
     if not character then return end
 
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return end
 
-    debugMessage("Playing Audio")
+    debugMessage("Playing Global Audio")
 
     -- Remove old sounds if they exist
     if humanoidRootPart:FindFirstChild("FlexworksSound") then
@@ -124,18 +132,13 @@ local function playAudio()
         sound.SoundId = "rbxassetid://" .. id
         sound.Volume = 2
         sound.Looped = false
-        sound.RollOffMode = Enum.RollOffMode.Linear -- Ensures sound moves with player
-        sound.MaxDistance = 100 -- Adjust as needed
+        sound.RollOffMode = Enum.RollOffMode.Linear
+        sound.MaxDistance = 150 -- Adjust as needed
         sound.Parent = soundFolder
         sound:Play()
 
         debugMessage("Playing sound: " .. id)
     end
-end
-
--- Sync Sound Across Script Users
-flexworksEvent.Event:Connect(function()
-    playAudio()
 end)
 
 -- Tool Equipped Function (Prevents Spam)
@@ -146,7 +149,7 @@ tool.Equipped:Connect(function()
     tool.Parent = backpack
 
     local duration = playAnimation()
-    flexworksEvent:Fire() -- Trigger sound for all script users
+    playAudio() -- Trigger sound for all script users
 
     task.spawn(function()
         wait(duration)
@@ -157,7 +160,7 @@ end)
 -- Function to Refresh Players Automatically Without Lagging
 local function refreshExecutors()
     executedPlayers = {} -- Clear existing players
-    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+    for _, v in pairs(players:GetPlayers()) do
         if v:FindFirstChild("Backpack") and v.Backpack:FindFirstChild("Unlimited Flexworks") then
             table.insert(executedPlayers, v)
         end
@@ -177,18 +180,13 @@ player.CharacterAdded:Connect(function()
     refreshExecutors() -- Automatically refresh executor list after reset
 end)
 
--- Function to Force Reset the Player
-local function forceReset()
-    player.Character:BreakJoints() -- Forces reset
-end
-
 -- Function to Count Players with Script
 local function countExecutors()
-    refreshExecutors() -- Ensures updated list before counting
+    refreshExecutors()
     return #executedPlayers
-end -- **Fixed the misplaced `)` here**
+end
 
--- Create the UI Button
+-- UI Button for Checking Users with Script
 local function createUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Parent = game.CoreGui
@@ -205,11 +203,6 @@ local function createUI()
     uiCorner.CornerRadius = UDim.new(1, 0)
     uiCorner.Parent = button
 
-    local uiStroke = Instance.new("UIStroke")
-    uiStroke.Thickness = 2
-    uiStroke.Color = Color3.new(1, 1, 1)
-    uiStroke.Parent = button
-
     local function refreshCount()
         game.StarterGui:SetCore("SendNotification", {
             Title = "Flexworks Users",
@@ -223,11 +216,8 @@ local function createUI()
     userInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.KeyCode == Enum.KeyCode.End and not gameProcessed then
             refreshCount()
-        elseif input.KeyCode == Enum.KeyCode.F5 and not gameProcessed then
-            forceReset()
         end
     end)
 end
 
 createUI()
--- Final update (maybe?) 
