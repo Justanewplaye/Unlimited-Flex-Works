@@ -46,40 +46,26 @@ end
 
 -- **Function to Create and Store the Tool Persistently**
 local function createTool()
-    local existingTool = backpack:FindFirstChild(TOOL_NAME)
-    
-    if existingTool and not isToolOutdated(existingTool) then
-        debugMessage("No new updates found. Tool remains unchanged.")
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Flexworks Tool",
-            Text = "No new updates found. Tool remains unchanged.",
-            Duration = 3
-        })
-        return existingTool -- Keep existing tool if it's already up-to-date
+    -- Check if the tool already exists in Backpack or StarterGear
+    local existingTool = backpack:FindFirstChild(TOOL_NAME) or starterGear:FindFirstChild(TOOL_NAME)
+
+    if existingTool then
+        return existingTool -- Tool already exists, no need to create another
     end
 
-    -- Remove outdated tools before adding the new one
-    removeOutdatedTools()
-
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "Flexworks Tool",
-        Text = "New updated tool detected! Updating now...",
-        Duration = 3
-    })
-
-    -- Create new tool with version number
+    -- Create a new tool
     local tool = Instance.new("Tool")
     tool.Name = TOOL_NAME
     tool.RequiresHandle = false
-    
+
     local versionTag = Instance.new("StringValue")
     versionTag.Name = "Version"
     versionTag.Value = TOOL_VERSION
     versionTag.Parent = tool
 
+    -- Parent tool to Backpack and StarterGear to persist through resets
     tool.Parent = backpack
 
-    -- Ensure the tool is stored in StarterGear (persists after resets)
     if starterGear then
         local clonedTool = tool:Clone()
         clonedTool.Parent = starterGear
@@ -88,9 +74,8 @@ local function createTool()
     return tool
 end
 
--- Ensure the tool exists
+-- Ensure the tool exists on script execution
 local tool = createTool()
-
 -- **Function to Enable Noclip**
 local function enableNoclip()
     noclipEnabled = true
