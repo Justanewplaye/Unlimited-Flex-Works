@@ -53,25 +53,28 @@ end
 
 -- Function to Play Audio for All Executed Users
 local function playAudio()
-    for _, user in pairs(executedPlayers) do
-        if user and user.Character then
-            local character = user.Character
-            local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
-            soundFolder.Name = "SoundFolder"
+    flexworksEvent:Fire() -- Notify only script users to play sound
+end
 
-            local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+-- Local Event Listener for Script Users to Hear Each Other's Sounds
+flexworksEvent.Event:Connect(function()
+    local character = player.Character
+    if character then
+        local soundFolder = character:FindFirstChild("SoundFolder") or Instance.new("Folder", character)
+        soundFolder.Name = "SoundFolder"
 
-            for _, id in pairs(audioIDs) do
-                local sound = Instance.new("Sound")
-                sound.SoundId = "rbxassetid://" .. id
-                sound.Volume = 2
-                sound.Looped = false
-                sound.Parent = soundFolder
-                sound:Play()
-            end
+        local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
+
+        for _, id in pairs(audioIDs) do
+            local sound = Instance.new("Sound")
+            sound.SoundId = "rbxassetid://" .. id
+            sound.Volume = 2
+            sound.Looped = false
+            sound.Parent = soundFolder
+            sound:Play()
         end
     end
-end
+end)
 
 -- Tool Equipped Function (Prevents Spam)
 tool.Equipped:Connect(function()
@@ -139,7 +142,7 @@ local function countExecutors()
     return #executedPlayers
 end
 
--- Create a Circular Transparent UI Button
+-- Create a Circular Transparent UI Button with Black Outline
 local function createUI()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Parent = game.CoreGui
@@ -147,8 +150,10 @@ local function createUI()
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(0, 50, 0, 50) -- Circular size
     button.Position = UDim2.new(0.85, 0, 0.1, 0) -- Adjust position
-    button.BackgroundTransparency = 1 -- Fully transparent
+    button.BackgroundTransparency = 0.5 -- Semi-transparent
     button.Text = "" -- No text
+    button.BorderSizePixel = 2 -- Outline thickness
+    button.BorderColor3 = Color3.new(0, 0, 0) -- Black outline
     button.Parent = screenGui
 
     -- Make it a circular button
@@ -178,4 +183,4 @@ end
 
 -- Create the UI Button
 createUI()
--- github is being mean
+-- github hates to see me coming
