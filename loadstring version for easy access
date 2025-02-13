@@ -1,2 +1,2 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/main/The%20Unlimited%20Flex%20Works%20Code", true))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/main/The%20Unlimited%20Flex%20Works%20Code.", true))()
 -- I love github and making fucking animations that only work for TSB!!!! anyways thanks for viewing.
