@@ -59,10 +59,71 @@ local function createTool()
         clonedTool.Parent = starterGear
     end
     
+-- Define Services
+local players = game:GetService("Players")
+local runService = game:GetService("RunService")
+local userInputService = game:GetService("UserInputService")
+
+local player = players.LocalPlayer
+local isPlaying = false
+local tool = nil -- Ensure tool is globally referenced
+
+print("[DEBUG] Script Loaded")
+
+-- Tool Name & Version System
+local TOOL_NAME = "Unlimited Flexworks"
+local TOOL_VERSION = "1.6" -- Change this when updating
+
+-- **Function to Remove Outdated Tools & Keep Latest Version**
+local function removeOutdatedTools()
+    print("[DEBUG] Removing outdated tools")
+    local backpack = player:FindFirstChild("Backpack")
+    local starterGear = player:FindFirstChild("StarterGear")
+    
+    if backpack then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") and item.Name == TOOL_NAME then
+                item:Destroy()
+            end
+        end
+    end
+    
+    if starterGear then
+        for _, item in pairs(starterGear:GetChildren()) do
+            if item:IsA("Tool") and item.Name == TOOL_NAME then
+                item:Destroy()
+            end
+        end
+    end
+end
+
+-- **Function to Create and Store the Tool Persistently**
+local function createTool()
+    print("[DEBUG] Creating tool")
+    local backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
+    local starterGear = player:FindFirstChild("StarterGear") or player:WaitForChild("StarterGear")
+    
+    if not backpack then 
+        print("[ERROR] Backpack not found")
+        return 
+    end
+    
+    removeOutdatedTools()
+    
+    tool = Instance.new("Tool")
+    tool.Name = TOOL_NAME
+    tool.RequiresHandle = false
+    tool.Parent = backpack
+    
+    if starterGear then
+        local clonedTool = tool:Clone()
+        clonedTool.Parent = starterGear
+    end
+    
     return tool
 end
 
--- **Ensure Tool Persists After Respawn**
+-- **Ensure Tool Persists After Respawn and Works**
 local function ensureToolPersistence()
     player.CharacterAdded:Connect(function()
         print("[DEBUG] Character respawned, ensuring tool persistence")
