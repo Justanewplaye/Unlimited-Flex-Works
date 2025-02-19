@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
-local Debris = game:GetService("Debris") -- Used to clean up old objects
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
@@ -13,11 +12,11 @@ local selectedPart = nil
 local holding = false
 local grabbedObject = nil
 local smoothness = 0.15
-local grabDistance = 10
+local grabDistance = 15
 local throwStrength = 20
 local maxGrabDistance = 50
 local minGrabDistance = 5
-local recoveryHeight = -100 -- The height at which an object is considered lost
+local isLocked = false -- Lock mode status
 
 -- Function to detect if the player is on mobile
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -48,10 +47,12 @@ selectionBox.Color3 = Color3.new(1, 0, 0)
 selectionBox.LineThickness = 0.05
 selectionBox.Parent = game.Workspace
 
--- Mobile Buttons
-local buttonQ, buttonE
+-- Mobile UI
+local screenGui
+local buttonLock, buttonQ, buttonE
+
 if isMobile then
-    local screenGui = Instance.new("ScreenGui", player.PlayerGui)
+    screenGui = Instance.new("ScreenGui", player.PlayerGui)
     screenGui.Name = "TelekinesisUI"
 
     buttonQ = Instance.new("TextButton", screenGui)
@@ -66,6 +67,12 @@ if isMobile then
     buttonE.Text = "➡️ Closer"
     buttonE.TextScaled = true
 
+    buttonLock = Instance.new("TextButton", screenGui)
+    buttonLock.Size = UDim2.new(0.2, 0, 0.08, 0)
+    buttonLock.Position = UDim2.new(0.4, 0, 0.85, 0)
+    buttonLock.Text = "🔒 Lock"
+    buttonLock.TextScaled = true
+
     -- Mobile Button Actions
     buttonQ.MouseButton1Click:Connect(function()
         grabDistance = math.clamp(grabDistance + 2, minGrabDistance, maxGrabDistance)
@@ -74,19 +81,10 @@ if isMobile then
     buttonE.MouseButton1Click:Connect(function()
         grabDistance = math.clamp(grabDistance - 2, minGrabDistance, maxGrabDistance)
     end)
-end
 
--- Function to track object position and respawn if lost
-local function monitorObject(part, originalPosition)
-    task.spawn(function()
-        while part and part.Parent do
-            if part.Position.Y < recoveryHeight then
-                print("[Telekinesis] Object fell into the abyss. Respawning it.")
-                part.Position = originalPosition + Vector3.new(0, 5, 0) -- Respawn slightly above original position
-                part.Velocity = Vector3.new(0, 0, 0) -- Reset velocity
-            end
-            task.wait(1)
-        end
+    buttonLock.MouseButton1Click:Connect(function()
+        isLocked = not isLocked
+        buttonLock.Text = isLocked and "🔓 Unlock" or "🔒 Lock"
     end)
 end
 
@@ -112,9 +110,6 @@ local function grabObject()
         grabbedObject = selectedPart
         holding = true
 
-        local originalPosition = grabbedObject.Position
-        monitorObject(grabbedObject, originalPosition) -- Track the object in case it falls
-
         -- Create movement constraints
         local bodyPosition = Instance.new("BodyPosition", grabbedObject)
         bodyPosition.MaxForce = Vector3.new(5000, 5000, 5000)
@@ -128,7 +123,7 @@ local function grabObject()
         local moveConnection
         moveConnection = RunService.RenderStepped:Connect(function()
             if holding and grabbedObject then
-                local targetPosition = mouse.Hit.Position + Vector3.new(0, 3, 0)
+                local targetPosition = isLocked and grabbedObject.Position + (mouse.UnitRay.Direction * grabDistance) or mouse.Hit.Position + Vector3.new(0, 3, 0)
                 bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, smoothness)
             else
                 moveConnection:Disconnect()
@@ -162,6 +157,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         grabDistance = math.clamp(grabDistance + 2, minGrabDistance, maxGrabDistance)
     elseif input.KeyCode == Enum.KeyCode.E then
         grabDistance = math.clamp(grabDistance - 2, minGrabDistance, maxGrabDistance)
+    elseif input.KeyCode == Enum.KeyCode.R then
+        isLocked = not isLocked
+        print(isLocked and "[Telekinesis] Locked onto direction!" or "[Telekinesis] Unlocked movement!")
     end
 end)
 
@@ -188,27 +186,9 @@ telekinesisTool.Unequipped:Connect(function()
     releaseObject()
 end)
 
--- Respawn Tools After Death
-local function respawnTools()
-    task.wait(1)
-    backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
-
-    if not backpack:FindFirstChild("Selection Tool") then
-        createTool("Selection Tool")
-    end
-    if not backpack:FindFirstChild("Telekinesis Tool") then
-        createTool("Telekinesis Tool")
-    end
-end
-
-player.CharacterAdded:Connect(function()
-    task.wait(3)
-    respawnTools()
-end)
-
 -- In-Game Notification
 StarterGui:SetCore("SendNotification", {
     Title = "Telekinesis Help";
-    Text = "Press Q to move object further, E to bring closer.";
+    Text = "Press R to lock movement direction.\nPress Q/E to adjust distance.";
     Duration = 7
 })
