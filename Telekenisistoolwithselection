@@ -1,0 +1,214 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local Debris = game:GetService("Debris") -- Used to clean up old objects
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
+
+-- Variables
+local selectedPart = nil
+local holding = false
+local grabbedObject = nil
+local smoothness = 0.15
+local grabDistance = 10
+local throwStrength = 20
+local maxGrabDistance = 50
+local minGrabDistance = 5
+local recoveryHeight = -100 -- The height at which an object is considered lost
+
+-- Function to detect if the player is on mobile
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+-- Function to create a tool and re-add it to the player's backpack
+local function createTool(name)
+    local tool = Instance.new("Tool")
+    tool.Name = name
+    tool.RequiresHandle = false
+    tool.Parent = backpack
+    return tool
+end
+
+-- Remove old tools (fixes execution issues)
+for _, tool in pairs(backpack:GetChildren()) do
+    if tool:IsA("Tool") and (tool.Name == "Selection Tool" or tool.Name == "Telekinesis Tool") then
+        tool:Destroy()
+    end
+end
+
+-- Create Tools
+local selectionTool = createTool("Selection Tool")
+local telekinesisTool = createTool("Telekinesis Tool")
+
+-- Create a selection box (for highlighting the selected object)
+local selectionBox = Instance.new("SelectionBox")
+selectionBox.Color3 = Color3.new(1, 0, 0)
+selectionBox.LineThickness = 0.05
+selectionBox.Parent = game.Workspace
+
+-- Mobile Buttons
+local buttonQ, buttonE
+if isMobile then
+    local screenGui = Instance.new("ScreenGui", player.PlayerGui)
+    screenGui.Name = "TelekinesisUI"
+
+    buttonQ = Instance.new("TextButton", screenGui)
+    buttonQ.Size = UDim2.new(0.15, 0, 0.08, 0)
+    buttonQ.Position = UDim2.new(0.1, 0, 0.85, 0)
+    buttonQ.Text = "⬅️ Distance"
+    buttonQ.TextScaled = true
+
+    buttonE = Instance.new("TextButton", screenGui)
+    buttonE.Size = UDim2.new(0.15, 0, 0.08, 0)
+    buttonE.Position = UDim2.new(0.75, 0, 0.85, 0)
+    buttonE.Text = "➡️ Closer"
+    buttonE.TextScaled = true
+
+    -- Mobile Button Actions
+    buttonQ.MouseButton1Click:Connect(function()
+        grabDistance = math.clamp(grabDistance + 2, minGrabDistance, maxGrabDistance)
+    end)
+
+    buttonE.MouseButton1Click:Connect(function()
+        grabDistance = math.clamp(grabDistance - 2, minGrabDistance, maxGrabDistance)
+    end)
+end
+
+-- Function to track object position and respawn if lost
+local function monitorObject(part, originalPosition)
+    task.spawn(function()
+        while part and part.Parent do
+            if part.Position.Y < recoveryHeight then
+                print("[Telekinesis] Object fell into the abyss. Respawning it.")
+                part.Position = originalPosition + Vector3.new(0, 5, 0) -- Respawn slightly above original position
+                part.Velocity = Vector3.new(0, 0, 0) -- Reset velocity
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- Function to select/deselect a part (Selection Tool)
+local function toggleSelection()
+    local target = mouse.Target
+    if target and target:IsA("BasePart") and not target.Anchored and not target.Parent:FindFirstChildOfClass("Humanoid") then
+        if selectedPart == target then
+            selectedPart = nil
+            selectionBox.Adornee = nil
+            print("Deselected part")
+        else
+            selectedPart = target
+            selectionBox.Adornee = target
+            print("Selected part: " .. target.Name)
+        end
+    end
+end
+
+-- Function to grab an object (Telekinesis Tool)
+local function grabObject()
+    if selectedPart and not holding then
+        grabbedObject = selectedPart
+        holding = true
+
+        local originalPosition = grabbedObject.Position
+        monitorObject(grabbedObject, originalPosition) -- Track the object in case it falls
+
+        -- Create movement constraints
+        local bodyPosition = Instance.new("BodyPosition", grabbedObject)
+        bodyPosition.MaxForce = Vector3.new(5000, 5000, 5000)
+        bodyPosition.D = 10
+        bodyPosition.P = 3000
+
+        local bodyGyro = Instance.new("BodyGyro", grabbedObject)
+        bodyGyro.MaxTorque = Vector3.new(5000, 5000, 5000)
+
+        -- Track movement
+        local moveConnection
+        moveConnection = RunService.RenderStepped:Connect(function()
+            if holding and grabbedObject then
+                local targetPosition = mouse.Hit.Position + Vector3.new(0, 3, 0)
+                bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, smoothness)
+            else
+                moveConnection:Disconnect()
+            end
+        end)
+    end
+end
+
+-- Function to release the object
+local function releaseObject()
+    if grabbedObject then
+        local direction = (mouse.Hit.Position - grabbedObject.Position).unit
+        grabbedObject.Velocity = direction * throwStrength
+
+        -- Remove physics constraints
+        for _, obj in ipairs(grabbedObject:GetChildren()) do
+            if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                obj:Destroy()
+            end
+        end
+
+        grabbedObject = nil
+        holding = false
+    end
+end
+
+-- Distance Control for PC (Q/E Keys)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Q then
+        grabDistance = math.clamp(grabDistance + 2, minGrabDistance, maxGrabDistance)
+    elseif input.KeyCode == Enum.KeyCode.E then
+        grabDistance = math.clamp(grabDistance - 2, minGrabDistance, maxGrabDistance)
+    end
+end)
+
+-- Detect tool activation (Selection Tool)
+selectionTool.Activated:Connect(function()
+    toggleSelection()
+end)
+
+-- Detect tool activation (Telekinesis Tool)
+telekinesisTool.Activated:Connect(function()
+    if selectedPart then
+        if not holding then
+            grabObject()
+        else
+            releaseObject()
+        end
+    else
+        print("No object selected! Use the Selection Tool first.")
+    end
+end)
+
+-- Drop object if tool is unequipped
+telekinesisTool.Unequipped:Connect(function()
+    releaseObject()
+end)
+
+-- Respawn Tools After Death
+local function respawnTools()
+    task.wait(1)
+    backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
+
+    if not backpack:FindFirstChild("Selection Tool") then
+        createTool("Selection Tool")
+    end
+    if not backpack:FindFirstChild("Telekinesis Tool") then
+        createTool("Telekinesis Tool")
+    end
+end
+
+player.CharacterAdded:Connect(function()
+    task.wait(3)
+    respawnTools()
+end)
+
+-- In-Game Notification
+StarterGui:SetCore("SendNotification", {
+    Title = "Telekinesis Help";
+    Text = "Press Q to move object further, E to bring closer.";
+    Duration = 7
+})
