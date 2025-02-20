@@ -31,35 +31,30 @@ local function createTool(name)
     return tool
 end
 
--- Function to respawn tools after death
-local function respawnTools()
-    task.wait(1) -- Small delay to prevent issues
+-- Function to re-add tools correctly after death
+local function ensureToolsExist()
     backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
 
-    if not backpack:FindFirstChild("Selection Tool") then
-        createTool("Selection Tool")
+    -- Remove old instances to prevent duplicates
+    for _, tool in pairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") and (tool.Name == "Selection Tool" or tool.Name == "Telekinesis Tool") then
+            tool:Destroy()
+        end
     end
-    if not backpack:FindFirstChild("Telekinesis Tool") then
-        createTool("Telekinesis Tool")
-    end
+
+    -- Recreate the tools
+    createTool("Selection Tool")
+    createTool("Telekinesis Tool")
 end
 
--- Detect when the player respawns and re-add the tools
+-- Detect player respawning and fix tools
 player.CharacterAdded:Connect(function()
-    task.wait(3) -- Give time for respawn
-    respawnTools()
+    task.wait(2) -- Small delay to ensure character is fully loaded
+    ensureToolsExist()
 end)
 
--- Remove old tools before adding new ones (fixes execution issues)
-for _, tool in pairs(backpack:GetChildren()) do
-    if tool:IsA("Tool") and (tool.Name == "Selection Tool" or tool.Name == "Telekinesis Tool") then
-        tool:Destroy()
-    end
-end
-
--- Create Tools
-local selectionTool = createTool("Selection Tool")
-local telekinesisTool = createTool("Telekinesis Tool")
+-- Create Tools (Initial Execution)
+ensureToolsExist()
 
 -- Create a selection box (for highlighting the selected object)
 local selectionBox = Instance.new("SelectionBox")
@@ -67,70 +62,15 @@ selectionBox.Color3 = Color3.new(1, 0, 0)
 selectionBox.LineThickness = 0.05
 selectionBox.Parent = game.Workspace
 
--- Mobile UI Buttons
-local screenGui, buttonQ, buttonE, buttonR, buttonT, buttonY
-
-if isMobile then
-    screenGui = Instance.new("ScreenGui", player.PlayerGui)
-    screenGui.Name = "TelekinesisUI"
-
-    buttonQ = Instance.new("TextButton", screenGui)
-    buttonQ.Size = UDim2.new(0.15, 0, 0.08, 0)
-    buttonQ.Position = UDim2.new(0.05, 0, 0.7, 0)
-    buttonQ.Text = "⬅️ Distance"
-    buttonQ.TextScaled = true
-
-    buttonE = Instance.new("TextButton", screenGui)
-    buttonE.Size = UDim2.new(0.15, 0, 0.08, 0)
-    buttonE.Position = UDim2.new(0.8, 0, 0.7, 0)
-    buttonE.Text = "➡️ Closer"
-    buttonE.TextScaled = true
-
-    buttonR = Instance.new("TextButton", screenGui)
-    buttonR.Size = UDim2.new(0.2, 0, 0.08, 0)
-    buttonR.Position = UDim2.new(0.3, 0, 0.7, 0)
-    buttonR.Text = "🔄 Rotate"
-    buttonR.TextScaled = true
-
-    buttonT = Instance.new("TextButton", screenGui)
-    buttonT.Size = UDim2.new(0.2, 0, 0.08, 0)
-    buttonT.Position = UDim2.new(0.3, 0, 0.8, 0)
-    buttonT.Text = "↕️ Tilt"
-    buttonT.TextScaled = true
-
-    buttonY = Instance.new("TextButton", screenGui)
-    buttonY.Size = UDim2.new(0.2, 0, 0.08, 0)
-    buttonY.Position = UDim2.new(0.55, 0, 0.8, 0)
-    buttonY.Text = "🚀 Throw"
-    buttonY.TextScaled = true
-
-    -- Mobile Button Actions
-    buttonQ.MouseButton1Click:Connect(function()
-        grabDistance = grabDistance + 10
-    end)
-
-    buttonE.MouseButton1Click:Connect(function()
-        grabDistance = math.max(grabDistance - 10, 5)
-    end)
-
-    buttonR.MouseButton1Click:Connect(function()
-        if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0) end
-    end)
-
-    buttonT.MouseButton1Click:Connect(function()
-        if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0) end
-    end)
-
-    buttonY.MouseButton1Click:Connect(function()
-        if grabbedObject then
-            grabbedObject.Velocity = mouse.UnitRay.Direction * throwStrength
-            for _, obj in ipairs(grabbedObject:GetChildren()) do
-                if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
-            end
-            grabbedObject = nil
-            holding = false
+-- Function to change cursor to dragging hand when holding
+local function updateCursor(state)
+    if not isMobile then
+        if state then
+            mouse.Icon = "rbxasset://textures/DragCursor.png" -- Dragging cursor
+        else
+            mouse.Icon = "rbxasset://textures/ArrowCursor.png" -- Default cursor
         end
-    end)
+    end
 end
 
 -- Function to grab an object (Fixes Long-Range Issue)
@@ -138,6 +78,7 @@ local function grabObject()
     if selectedPart and not holding then
         grabbedObject = selectedPart
         holding = true
+        updateCursor(true) -- Change cursor when grabbing
 
         -- Create movement constraints
         local bodyPosition = Instance.new("BodyPosition", grabbedObject)
@@ -152,9 +93,10 @@ local function grabObject()
         local moveConnection
         moveConnection = RunService.RenderStepped:Connect(function()
             if holding and grabbedObject then
-                local targetPosition = mouse.Hit.Position + Vector3.new(0, 3, 0)
+                local targetPosition = isLocked
+                    and (grabbedObject.Position + (mouse.UnitRay.Direction * grabDistance))
+                    or (mouse.Hit.Position + Vector3.new(0, 3, 0))
 
-                -- Fix for objects stopping at long range
                 if (player.Character.HumanoidRootPart.Position - grabbedObject.Position).Magnitude > maxGrabDistance then
                     grabbedObject.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0)
                 else
@@ -167,17 +109,57 @@ local function grabObject()
     end
 end
 
+-- Function to release the object
+local function releaseObject()
+    if grabbedObject then
+        grabbedObject.Velocity = mouse.UnitRay.Direction * throwStrength
+        updateCursor(false) -- Reset cursor
+
+        for _, obj in ipairs(grabbedObject:GetChildren()) do
+            if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
+        end
+        grabbedObject = nil
+        holding = false
+    end
+end
+
 -- Controls for PC
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.Q then grabDistance = grabDistance + 10 end
-    if input.KeyCode == Enum.KeyCode.E then grabDistance = math.max(grabDistance - 10, 5) end
-    if input.KeyCode == Enum.KeyCode.R then if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0) end end
-    if input.KeyCode == Enum.KeyCode.T then if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0) end end
-    if input.KeyCode == Enum.KeyCode.Y then grabObject() end
+    if input.KeyCode == Enum.KeyCode.R then isLocked = not isLocked end
 end)
 
 -- Detect tool activation
-selectionTool.Activated:Connect(toggleSelection)
-telekinesisTool.Activated:Connect(function() if selectedPart then if not holding then grabObject() else releaseObject() end end end)
-telekinesisTool.Unequipped:Connect(releaseObject)
+local function toggleSelection()
+    local target = mouse.Target
+    if target and target:IsA("BasePart") and not target.Anchored and not target.Parent:FindFirstChildOfClass("Humanoid") then
+        if selectedPart == target then
+            selectedPart = nil
+            selectionBox.Adornee = nil
+        else
+            selectedPart = target
+            selectionBox.Adornee = target
+        end
+    end
+end
+
+-- Activate tools
+local selectionTool = backpack:FindFirstChild("Selection Tool")
+local telekinesisTool = backpack:FindFirstChild("Telekinesis Tool")
+
+if selectionTool then
+    selectionTool.Activated:Connect(toggleSelection)
+end
+
+if telekinesisTool then
+    telekinesisTool.Activated:Connect(function()
+        if selectedPart then
+            if not holding then
+                grabObject()
+            else
+                releaseObject()
+            end
+        end
+    end)
+    telekinesisTool.Unequipped:Connect(releaseObject)
+end
