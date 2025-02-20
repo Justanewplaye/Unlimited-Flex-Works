@@ -1,0 +1,90 @@
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+
+-- Ensure the button stays after reset
+local function createLayButton()
+    -- Check if button already exists
+    if game.CoreGui:FindFirstChild("LayButton") then return end
+
+    -- Create Button
+    local button = Instance.new("TextButton")
+    button.Name = "LayButton"
+    button.Size = UDim2.new(0.1, 0, 0.1, 0) -- Small Circular Button
+    button.Position = UDim2.new(0.85, 0, 0.8, 0) -- Bottom Right Corner
+    button.BackgroundTransparency = 1 -- Make it transparent
+    button.Text = "Lay"
+    button.TextScaled = true
+    button.Font = Enum.Font.GothamBold
+    button.TextColor3 = Color3.fromRGB(200, 200, 200)
+    button.Parent = game.CoreGui -- Ensure it stays on reset
+
+    -- Create circular outline
+    local uiCorner = Instance.new("UICorner", button)
+    uiCorner.CornerRadius = UDim.new(1, 0) -- Makes it a perfect circle
+
+    local uiStroke = Instance.new("UIStroke", button)
+    uiStroke.Thickness = 2
+    uiStroke.Color = Color3.fromRGB(150, 150, 150) -- Grey outline
+    uiStroke.Parent = button
+
+    -- Function to Simulate L Key Press
+    local function pressL()
+        -- Send Notification
+        StarterGui:SetCore("SendNotification", {
+            Title = "Inf Yield",
+            Text = "Check the console for tutorial!",
+            Duration = 5
+        })
+
+        -- Print Full Tutorial in Console
+        rconsoleprint("\n\n")
+        rconsoleprint("=====================================\n")
+        rconsoleprint("      INFINITE YIELD LAY TUTORIAL    \n")
+        rconsoleprint("=====================================\n\n")
+        
+        rconsoleprint("1️⃣ Open Roblox and run Infinite Yield in your executor.\n")
+        rconsoleprint("   - Get it from: https://github.com/EdgeIY/infiniteyield\n")
+        rconsoleprint("   - Or execute:\n")
+        rconsoleprint("     loadstring(game:HttpGet(\"https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source\"))()\n\n")
+
+        rconsoleprint("2️⃣ Set the Lay Command in Infinite Yield\n")
+        rconsoleprint("   - Open the Infinite Yield command bar by typing `;cmds`\n")
+        rconsoleprint("   - Find the lay command (it is usually `;lay`)\n")
+        rconsoleprint("   - Bind the lay command to the L key:\n")
+        rconsoleprint("     ;bind L lay\n\n")
+
+        rconsoleprint("3️⃣ Run this script to enable the Lay Button!\n")
+        rconsoleprint("   - A 'Lay' button will appear in the bottom-right corner.\n")
+        rconsoleprint("   - Pressing it will act like pressing 'L', triggering Infinite Yield’s `;lay` command.\n")
+        rconsoleprint("   - You’ll see a notification when you press it!\n\n")
+
+        rconsoleprint("🚀 Now you can lay down with one tap on mobile or by pressing L on PC! 🎯🔥\n\n")
+
+        -- Simulate the L key press
+        local input = Enum.KeyCode.L
+        UserInputService.InputBegan:Fire(input, false)
+    end
+
+    -- Button Click Event
+    button.MouseButton1Click:Connect(pressL)
+
+    -- PC Keyboard Bind (For Backup)
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.L then
+            pressL()
+        end
+    end)
+end
+
+-- Ensure the button is recreated on respawn
+player.CharacterAdded:Connect(function()
+    task.wait(2)
+    createLayButton()
+end)
+
+-- Create the button when script runs
+createLayButton()
