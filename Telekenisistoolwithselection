@@ -11,18 +11,18 @@ local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild
 local selectedPart = nil
 local holding = false
 local grabbedObject = nil
-local grabDistance = 20 -- Adjusted for better control
-local throwStrength = 100 -- Reduced throw power for better control
-local rotationSpeed = 5 -- Rotation adjustment
-local tiltSpeed = 5 -- Tilting adjustment
-local heavyStrength = Vector3.new(40000, 40000, 40000) -- Adjusted for smoother lifting
-local isLocked = false -- Lock mode status
-local maxGrabDistance = 1000 -- Increased grab range but controlled movement
+local grabDistance = 20
+local throwStrength = 100
+local rotationSpeed = 5
+local tiltSpeed = 5
+local heavyStrength = Vector3.new(50000, 50000, 50000)
+local isLocked = false
+local maxGrabDistance = 1000
 
--- Function to detect if the player is on mobile
+-- Detect Mobile Players
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Function to create a tool and re-add it to the player's backpack
+-- Function to create and add tools
 local function createTool(name)
     local tool = Instance.new("Tool")
     tool.Name = name
@@ -31,7 +31,7 @@ local function createTool(name)
     return tool
 end
 
--- Function to ensure tools are in the inventory
+-- Function to ensure tools are added after respawn
 local function ensureToolsExist()
     backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
 
@@ -54,7 +54,7 @@ end)
 -- Initialize tools on execution
 ensureToolsExist()
 
--- Create a selection box (for highlighting selected objects)
+-- Create selection box
 local selectionBox = Instance.new("SelectionBox")
 selectionBox.Color3 = Color3.new(1, 0, 0)
 selectionBox.LineThickness = 0.05
@@ -86,7 +86,7 @@ local function updateCursor(state)
     end
 end
 
--- Function to grab an object (Fixing Flinging Issue)
+-- Function to grab an object
 local function grabObject()
     if selectedPart and not holding then
         grabbedObject = selectedPart
@@ -97,12 +97,15 @@ local function grabObject()
         local bodyPosition = Instance.new("BodyPosition", grabbedObject)
         bodyPosition.MaxForce = heavyStrength
         bodyPosition.D = 10
-        bodyPosition.P = 3000 -- Adjusted for stability
+        bodyPosition.P = 3000
 
         local bodyGyro = Instance.new("BodyGyro", grabbedObject)
         bodyGyro.MaxTorque = heavyStrength
 
-        -- Track movement
+        bodyPosition.Parent = grabbedObject
+        bodyGyro.Parent = grabbedObject
+
+        -- Track movement (Smooth Dragging)
         local moveConnection
         moveConnection = RunService.RenderStepped:Connect(function()
             if holding and grabbedObject then
@@ -113,7 +116,7 @@ local function grabObject()
                 if (player.Character.HumanoidRootPart.Position - grabbedObject.Position).Magnitude > maxGrabDistance then
                     grabbedObject.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0)
                 else
-                    bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, 0.1) -- Smoother transition
+                    bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, 0.2)
                 end
             else
                 moveConnection:Disconnect()
@@ -122,11 +125,11 @@ local function grabObject()
     end
 end
 
--- Function to release the object
+-- Function to release an object
 local function releaseObject()
     if grabbedObject then
         grabbedObject.Velocity = mouse.UnitRay.Direction * throwStrength
-        updateCursor(false) -- Reset cursor
+        updateCursor(false)
 
         for _, obj in ipairs(grabbedObject:GetChildren()) do
             if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
@@ -149,7 +152,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Function to select/deselect a part (Selection Tool)
+-- Function to select/deselect a part
 local function toggleSelection()
     local target = mouse.Target
     if target and target:IsA("BasePart") and not target.Anchored and not target.Parent:FindFirstChildOfClass("Humanoid") then
