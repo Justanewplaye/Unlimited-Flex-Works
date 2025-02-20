@@ -30,7 +30,26 @@ local function createTool(name)
     return tool
 end
 
--- Remove old tools (fixes execution issues)
+-- Function to respawn tools after death
+local function respawnTools()
+    task.wait(1) -- Small delay to prevent issues
+    backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
+
+    if not backpack:FindFirstChild("Selection Tool") then
+        createTool("Selection Tool")
+    end
+    if not backpack:FindFirstChild("Telekinesis Tool") then
+        createTool("Telekinesis Tool")
+    end
+end
+
+-- Detect when the player respawns and re-add the tools
+player.CharacterAdded:Connect(function()
+    task.wait(3) -- Give time for respawn
+    respawnTools()
+end)
+
+-- Remove old tools before adding new ones (fixes execution issues)
 for _, tool in pairs(backpack:GetChildren()) do
     if tool:IsA("Tool") and (tool.Name == "Selection Tool" or tool.Name == "Telekinesis Tool") then
         tool:Destroy()
@@ -46,72 +65,6 @@ local selectionBox = Instance.new("SelectionBox")
 selectionBox.Color3 = Color3.new(1, 0, 0)
 selectionBox.LineThickness = 0.05
 selectionBox.Parent = game.Workspace
-
--- Mobile UI
-local screenGui, buttonQ, buttonE, buttonR, buttonT, buttonY
-
-if isMobile then
-    screenGui = Instance.new("ScreenGui", player.PlayerGui)
-    screenGui.Name = "TelekinesisUI"
-
-    buttonQ = Instance.new("TextButton", screenGui)
-    buttonQ.Size = UDim2.new(0.15, 0, 0.08, 0)
-    buttonQ.Position = UDim2.new(0.05, 0, 0.8, 0)
-    buttonQ.Text = "⬅️ Distance"
-    buttonQ.TextScaled = true
-
-    buttonE = Instance.new("TextButton", screenGui)
-    buttonE.Size = UDim2.new(0.15, 0, 0.08, 0)
-    buttonE.Position = UDim2.new(0.8, 0, 0.8, 0)
-    buttonE.Text = "➡️ Closer"
-    buttonE.TextScaled = true
-
-    buttonR = Instance.new("TextButton", screenGui)
-    buttonR.Size = UDim2.new(0.2, 0, 0.08, 0)
-    buttonR.Position = UDim2.new(0.3, 0, 0.8, 0)
-    buttonR.Text = "🔄 Rotate"
-    buttonR.TextScaled = true
-
-    buttonT = Instance.new("TextButton", screenGui)
-    buttonT.Size = UDim2.new(0.2, 0, 0.08, 0)
-    buttonT.Position = UDim2.new(0.3, 0, 0.9, 0)
-    buttonT.Text = "↕️ Tilt"
-    buttonT.TextScaled = true
-
-    buttonY = Instance.new("TextButton", screenGui)
-    buttonY.Size = UDim2.new(0.2, 0, 0.08, 0)
-    buttonY.Position = UDim2.new(0.55, 0, 0.9, 0)
-    buttonY.Text = "🚀 Throw"
-    buttonY.TextScaled = true
-
-    -- Mobile Button Actions
-    buttonQ.MouseButton1Click:Connect(function()
-        grabDistance = grabDistance + 10
-    end)
-
-    buttonE.MouseButton1Click:Connect(function()
-        grabDistance = math.max(grabDistance - 10, 5)
-    end)
-
-    buttonR.MouseButton1Click:Connect(function()
-        if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0) end
-    end)
-
-    buttonT.MouseButton1Click:Connect(function()
-        if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0) end
-    end)
-
-    buttonY.MouseButton1Click:Connect(function()
-        if grabbedObject then
-            grabbedObject.Velocity = mouse.UnitRay.Direction * throwStrength
-            for _, obj in ipairs(grabbedObject:GetChildren()) do
-                if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
-            end
-            grabbedObject = nil
-            holding = false
-        end
-    end)
-end
 
 -- Function to select/deselect a part (Selection Tool)
 local function toggleSelection()
@@ -169,17 +122,43 @@ local function releaseObject()
     end
 end
 
+-- Function to rotate an object
+local function rotateObject()
+    if grabbedObject then
+        grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0)
+    end
+end
+
+-- Function to tilt an object
+local function tiltObject()
+    if grabbedObject then
+        grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0)
+    end
+end
+
+-- Function to throw the object forcefully
+local function throwObject()
+    releaseObject()
+end
+
 -- Controls for PC
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Q then grabDistance = grabDistance + 10 end
     if input.KeyCode == Enum.KeyCode.E then grabDistance = math.max(grabDistance - 10, 5) end
-    if input.KeyCode == Enum.KeyCode.R then if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0) end end
-    if input.KeyCode == Enum.KeyCode.T then if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0) end end
-    if input.KeyCode == Enum.KeyCode.Y then releaseObject() end
+    if input.KeyCode == Enum.KeyCode.R then rotateObject() end
+    if input.KeyCode == Enum.KeyCode.T then tiltObject() end
+    if input.KeyCode == Enum.KeyCode.Y then throwObject() end
 end)
 
 -- Detect tool activation
 selectionTool.Activated:Connect(toggleSelection)
 telekinesisTool.Activated:Connect(function() if selectedPart then if not holding then grabObject() else releaseObject() end end end)
 telekinesisTool.Unequipped:Connect(releaseObject)
+
+-- In-Game Notification
+StarterGui:SetCore("SendNotification", {
+    Title = "Telekinesis Help";
+    Text = "Press Q/E to move distance, R to rotate, T to tilt, Y to throw.";
+    Duration = 7
+})
