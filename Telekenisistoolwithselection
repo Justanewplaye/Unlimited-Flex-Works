@@ -11,13 +11,13 @@ local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild
 local selectedPart = nil
 local holding = false
 local grabbedObject = nil
-local grabDistance = 50 -- Default grab range
-local throwStrength = 200 -- Powerful throw
+local grabDistance = 20 -- Adjusted for better control
+local throwStrength = 100 -- Reduced throw power for better control
 local rotationSpeed = 5 -- Rotation adjustment
 local tiltSpeed = 5 -- Tilting adjustment
-local heavyStrength = Vector3.new(100000, 100000, 100000) -- Higher lifting power
+local heavyStrength = Vector3.new(40000, 40000, 40000) -- Adjusted for smoother lifting
 local isLocked = false -- Lock mode status
-local maxGrabDistance = math.huge -- Infinite range 🚀
+local maxGrabDistance = 1000 -- Increased grab range but controlled movement
 
 -- Function to detect if the player is on mobile
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -31,60 +31,73 @@ local function createTool(name)
     return tool
 end
 
--- Function to re-add tools correctly after death
+-- Function to ensure tools are in the inventory
 local function ensureToolsExist()
     backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack")
 
-    -- Remove old instances to prevent duplicates
     for _, tool in pairs(backpack:GetChildren()) do
         if tool:IsA("Tool") and (tool.Name == "Selection Tool" or tool.Name == "Telekinesis Tool") then
             tool:Destroy()
         end
     end
 
-    -- Recreate the tools
     createTool("Selection Tool")
     createTool("Telekinesis Tool")
 end
 
--- Detect player respawning and fix tools
+-- Respawn tools after death
 player.CharacterAdded:Connect(function()
-    task.wait(2) -- Small delay to ensure character is fully loaded
+    task.wait(2)
     ensureToolsExist()
 end)
 
--- Create Tools (Initial Execution)
+-- Initialize tools on execution
 ensureToolsExist()
 
--- Create a selection box (for highlighting the selected object)
+-- Create a selection box (for highlighting selected objects)
 local selectionBox = Instance.new("SelectionBox")
 selectionBox.Color3 = Color3.new(1, 0, 0)
 selectionBox.LineThickness = 0.05
 selectionBox.Parent = game.Workspace
 
+-- Mobile UI Buttons
+local screenGui, buttonLock
+
+if isMobile then
+    screenGui = Instance.new("ScreenGui", player.PlayerGui)
+    screenGui.Name = "TelekinesisUI"
+
+    buttonLock = Instance.new("TextButton", screenGui)
+    buttonLock.Size = UDim2.new(0.2, 0, 0.08, 0)
+    buttonLock.Position = UDim2.new(0.4, 0, 0.85, 0)
+    buttonLock.Text = "🔒 Lock"
+    buttonLock.TextScaled = true
+
+    buttonLock.MouseButton1Click:Connect(function()
+        isLocked = not isLocked
+        buttonLock.Text = isLocked and "🔓 Unlock" or "🔒 Lock"
+    end)
+end
+
 -- Function to change cursor to dragging hand when holding
 local function updateCursor(state)
     if not isMobile then
-        if state then
-            mouse.Icon = "rbxasset://textures/DragCursor.png" -- Dragging cursor
-        else
-            mouse.Icon = "rbxasset://textures/ArrowCursor.png" -- Default cursor
-        end
+        mouse.Icon = state and "rbxasset://textures/DragCursor.png" or "rbxasset://textures/ArrowCursor.png"
     end
 end
 
--- Function to grab an object (Fixes Long-Range Issue)
+-- Function to grab an object (Fixing Flinging Issue)
 local function grabObject()
     if selectedPart and not holding then
         grabbedObject = selectedPart
         holding = true
-        updateCursor(true) -- Change cursor when grabbing
+        updateCursor(true)
 
         -- Create movement constraints
         local bodyPosition = Instance.new("BodyPosition", grabbedObject)
         bodyPosition.MaxForce = heavyStrength
         bodyPosition.D = 10
-        bodyPosition.P = 5000
+        bodyPosition.P = 3000 -- Adjusted for stability
 
         local bodyGyro = Instance.new("BodyGyro", grabbedObject)
         bodyGyro.MaxTorque = heavyStrength
@@ -100,7 +113,7 @@ local function grabObject()
                 if (player.Character.HumanoidRootPart.Position - grabbedObject.Position).Magnitude > maxGrabDistance then
                     grabbedObject.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0)
                 else
-                    bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, 0.2)
+                    bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, 0.1) -- Smoother transition
                 end
             else
                 moveConnection:Disconnect()
@@ -126,10 +139,17 @@ end
 -- Controls for PC
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.R then isLocked = not isLocked end
+    if input.KeyCode == Enum.KeyCode.R then
+        isLocked = not isLocked
+        StarterGui:SetCore("SendNotification", {
+            Title = "Telekinesis";
+            Text = isLocked and "Locked On!" or "Unlocked!";
+            Duration = 3
+        })
+    end
 end)
 
--- Detect tool activation
+-- Function to select/deselect a part (Selection Tool)
 local function toggleSelection()
     local target = mouse.Target
     if target and target:IsA("BasePart") and not target.Anchored and not target.Parent:FindFirstChildOfClass("Humanoid") then
