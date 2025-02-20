@@ -17,6 +17,7 @@ local rotationSpeed = 5 -- Rotation adjustment
 local tiltSpeed = 5 -- Tilting adjustment
 local heavyStrength = Vector3.new(100000, 100000, 100000) -- Higher lifting power
 local isLocked = false -- Lock mode status
+local maxGrabDistance = math.huge -- Infinite range 🚀
 
 -- Function to detect if the player is on mobile
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -66,23 +67,73 @@ selectionBox.Color3 = Color3.new(1, 0, 0)
 selectionBox.LineThickness = 0.05
 selectionBox.Parent = game.Workspace
 
--- Function to select/deselect a part (Selection Tool)
-local function toggleSelection()
-    local target = mouse.Target
-    if target and target:IsA("BasePart") and not target.Anchored and not target.Parent:FindFirstChildOfClass("Humanoid") then
-        if selectedPart == target then
-            selectedPart = nil
-            selectionBox.Adornee = nil
-            print("Deselected part")
-        else
-            selectedPart = target
-            selectionBox.Adornee = target
-            print("Selected part: " .. target.Name)
+-- Mobile UI Buttons
+local screenGui, buttonQ, buttonE, buttonR, buttonT, buttonY
+
+if isMobile then
+    screenGui = Instance.new("ScreenGui", player.PlayerGui)
+    screenGui.Name = "TelekinesisUI"
+
+    buttonQ = Instance.new("TextButton", screenGui)
+    buttonQ.Size = UDim2.new(0.15, 0, 0.08, 0)
+    buttonQ.Position = UDim2.new(0.05, 0, 0.7, 0)
+    buttonQ.Text = "⬅️ Distance"
+    buttonQ.TextScaled = true
+
+    buttonE = Instance.new("TextButton", screenGui)
+    buttonE.Size = UDim2.new(0.15, 0, 0.08, 0)
+    buttonE.Position = UDim2.new(0.8, 0, 0.7, 0)
+    buttonE.Text = "➡️ Closer"
+    buttonE.TextScaled = true
+
+    buttonR = Instance.new("TextButton", screenGui)
+    buttonR.Size = UDim2.new(0.2, 0, 0.08, 0)
+    buttonR.Position = UDim2.new(0.3, 0, 0.7, 0)
+    buttonR.Text = "🔄 Rotate"
+    buttonR.TextScaled = true
+
+    buttonT = Instance.new("TextButton", screenGui)
+    buttonT.Size = UDim2.new(0.2, 0, 0.08, 0)
+    buttonT.Position = UDim2.new(0.3, 0, 0.8, 0)
+    buttonT.Text = "↕️ Tilt"
+    buttonT.TextScaled = true
+
+    buttonY = Instance.new("TextButton", screenGui)
+    buttonY.Size = UDim2.new(0.2, 0, 0.08, 0)
+    buttonY.Position = UDim2.new(0.55, 0, 0.8, 0)
+    buttonY.Text = "🚀 Throw"
+    buttonY.TextScaled = true
+
+    -- Mobile Button Actions
+    buttonQ.MouseButton1Click:Connect(function()
+        grabDistance = grabDistance + 10
+    end)
+
+    buttonE.MouseButton1Click:Connect(function()
+        grabDistance = math.max(grabDistance - 10, 5)
+    end)
+
+    buttonR.MouseButton1Click:Connect(function()
+        if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0) end
+    end)
+
+    buttonT.MouseButton1Click:Connect(function()
+        if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0) end
+    end)
+
+    buttonY.MouseButton1Click:Connect(function()
+        if grabbedObject then
+            grabbedObject.Velocity = mouse.UnitRay.Direction * throwStrength
+            for _, obj in ipairs(grabbedObject:GetChildren()) do
+                if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
+            end
+            grabbedObject = nil
+            holding = false
         end
-    end
+    end)
 end
 
--- Function to grab an object (Telekinesis Tool)
+-- Function to grab an object (Fixes Long-Range Issue)
 local function grabObject()
     if selectedPart and not holding then
         grabbedObject = selectedPart
@@ -102,7 +153,13 @@ local function grabObject()
         moveConnection = RunService.RenderStepped:Connect(function()
             if holding and grabbedObject then
                 local targetPosition = mouse.Hit.Position + Vector3.new(0, 3, 0)
-                bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, 0.2)
+
+                -- Fix for objects stopping at long range
+                if (player.Character.HumanoidRootPart.Position - grabbedObject.Position).Magnitude > maxGrabDistance then
+                    grabbedObject.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+                else
+                    bodyPosition.Position = grabbedObject.Position:Lerp(targetPosition, 0.2)
+                end
             else
                 moveConnection:Disconnect()
             end
@@ -110,55 +167,17 @@ local function grabObject()
     end
 end
 
--- Function to release the object
-local function releaseObject()
-    if grabbedObject then
-        grabbedObject.Velocity = mouse.UnitRay.Direction * throwStrength
-        for _, obj in ipairs(grabbedObject:GetChildren()) do
-            if obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then obj:Destroy() end
-        end
-        grabbedObject = nil
-        holding = false
-    end
-end
-
--- Function to rotate an object
-local function rotateObject()
-    if grabbedObject then
-        grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0)
-    end
-end
-
--- Function to tilt an object
-local function tiltObject()
-    if grabbedObject then
-        grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0)
-    end
-end
-
--- Function to throw the object forcefully
-local function throwObject()
-    releaseObject()
-end
-
 -- Controls for PC
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.Q then grabDistance = grabDistance + 10 end
     if input.KeyCode == Enum.KeyCode.E then grabDistance = math.max(grabDistance - 10, 5) end
-    if input.KeyCode == Enum.KeyCode.R then rotateObject() end
-    if input.KeyCode == Enum.KeyCode.T then tiltObject() end
-    if input.KeyCode == Enum.KeyCode.Y then throwObject() end
+    if input.KeyCode == Enum.KeyCode.R then if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0) end end
+    if input.KeyCode == Enum.KeyCode.T then if grabbedObject then grabbedObject.CFrame = grabbedObject.CFrame * CFrame.Angles(math.rad(tiltSpeed), 0, 0) end end
+    if input.KeyCode == Enum.KeyCode.Y then grabObject() end
 end)
 
 -- Detect tool activation
 selectionTool.Activated:Connect(toggleSelection)
 telekinesisTool.Activated:Connect(function() if selectedPart then if not holding then grabObject() else releaseObject() end end end)
 telekinesisTool.Unequipped:Connect(releaseObject)
-
--- In-Game Notification
-StarterGui:SetCore("SendNotification", {
-    Title = "Telekinesis Help";
-    Text = "Press Q/E to move distance, R to rotate, T to tilt, Y to throw.";
-    Duration = 7
-})
