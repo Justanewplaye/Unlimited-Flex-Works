@@ -1,49 +1,9 @@
-local player = game.Players.LocalPlayer
+local Sword = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Tool")
 
-local function applyReach()
-    local char = player.Character or player.CharacterAdded:Wait()
-
-    local function onToolEquipped(tool)
-        if tool:IsA("Tool") then
-            local handle = tool:FindFirstChild("Handle")
-            if handle then
-                handle.Touched:Connect(function(hit)
-                    local enemy = hit.Parent
-                    local enemyHumanoid = enemy and enemy:FindFirstChildOfClass("Humanoid")
-
-                    if enemyHumanoid and enemy ~= char then
-                        local distance = (char.PrimaryPart.Position - enemy.PrimaryPart.Position).Magnitude
-
-                        if distance <= 50 then -- Reach distance
-                            firetouchinterest(handle, hit, 0) -- Simulate touch
-                            firetouchinterest(handle, hit, 1)
-                        end
-                    end
-                end)
-            end
-        end
-    end
-
-    -- Detect when a tool is equipped
-    char.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            onToolEquipped(child)
-        end
-    end)
-
-    -- Apply to already equipped tools
-    for _, tool in ipairs(char:GetChildren()) do
-        if tool:IsA("Tool") then
-            onToolEquipped(tool)
-        end
-    end
+for _, Obj in Sword:GetDescendants() do
+    if not Obj:IsA("LocalScript") then continue end
+    Obj:Destroy()
 end
 
--- Reapply reach on respawn
-player.CharacterAdded:Connect(function()
-    wait(1) -- Small delay to prevent errors
-    applyReach()
-end)
-
--- Run the script initially
-applyReach()
+Sword.Handle.Transparency = 1
+Sword.Handle.Size = Vector3.new(15, 15, 15)
