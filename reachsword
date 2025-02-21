@@ -1,0 +1,48 @@
+local REACH_DISTANCE = 50 -- Change this to increase reach distance
+
+local function applyReach(player)
+    local function onCharacterAdded(char)
+        local function onToolEquipped(tool)
+            if tool:IsA("Tool") then
+                local handle = tool:FindFirstChild("Handle")
+                if handle then
+                    handle.Touched:Connect(function(hit)
+                        local enemy = hit.Parent
+                        local enemyHumanoid = enemy and enemy:FindFirstChildOfClass("Humanoid")
+
+                        if enemyHumanoid and enemy ~= char then
+                            local distance = (char.PrimaryPart.Position - enemy.PrimaryPart.Position).Magnitude
+
+                            if distance <= REACHDISTANCE then
+                                firetouchinterest(handle, hit, 0) -- Simulates a touch event
+                                firetouchinterest(handle, hit, 1)
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+
+        -- Detect when a sword is equipped
+        char.ChildAdded:Connect(onToolEquipped)
+
+        -- Check for already equipped tools on spawn
+        for , tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                onToolEquipped(tool)
+            end
+        end
+    end
+
+    -- Apply the script on spawn and after respawn
+    player.CharacterAdded:Connect(onCharacterAdded)
+
+    -- If the character already exists (first spawn), apply the script
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+end
+
+-- Run the script on the LocalPlayer
+local player = game.Players.LocalPlayer
+applyReach(player)
