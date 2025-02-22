@@ -87,57 +87,17 @@ local function playExecution()
     sound:Play()
     
     -- Ensure playCaptions exists before calling
-    if playCaptions then
+    if type(playCaptions) == "function" then
         playCaptions({"I'm done messing around...", "This should end it all."}, {0.5, 0.5}, {0.05, 0.05})
     else
-        print("[ERROR] playCaptions function is missing!")
+        print("[ERROR] playCaptions function is missing or not recognized!")
     end
 end
 
 -- Ensure execution audio and captions play at startup
 playExecution()
 
--- **Function to Create and Store the Tool Persistently**
-local function createTool()
-    print("[DEBUG] Creating tool")
-    local backpack = player:FindFirstChild("Backpack") or player:WaitForChild("Backpack")
-    local starterGear = player:FindFirstChild("StarterGear") or player:WaitForChild("StarterGear")
-    
-    if not backpack then 
-        print("[ERROR] Backpack not found")
-        return nil
-    end
-    
-    removeOutdatedTools()
-    
-    local newTool = Instance.new("Tool")
-    newTool.Name = TOOL_NAME
-    newTool.RequiresHandle = false
-    newTool.Parent = backpack
-    
-    if starterGear then
-        local clonedTool = newTool:Clone()
-        clonedTool.Parent = starterGear
-    end
-    
-    return newTool
-end
-
--- **Ensure Tool Persists After Respawn and Works**
-local function ensureToolPersistence()
-    player.CharacterAdded:Connect(function()
-        print("[DEBUG] Character respawned, ensuring tool persistence")
-        wait(1)
-        tool = createTool()
-        if tool then
-            setupTool()
-        else
-            print("[ERROR] Failed to create tool after respawn")
-        end
-    end)
-end
-
--- Ensure the tool exists at script execution
+-- **Ensure the tool exists at script execution**
 print("[DEBUG] Initializing tool")
 tool = createTool()
 if tool then
