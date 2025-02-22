@@ -36,6 +36,67 @@ local function removeOutdatedTools()
     end
 end
 
+-- **Function to Display Captions with Typewriter Effect**
+local function playCaptions(textSequence, delays, speed)
+    print("[DEBUG] Displaying captions")
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "FlexworksCaptionGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:FindFirstChild("PlayerGui")
+    
+    local usernameLabel = Instance.new("TextLabel", screenGui)
+    usernameLabel.Size = UDim2.new(0.6, 0, 0.05, 0)
+    usernameLabel.Position = UDim2.new(0.2, 0, 0.75, 0)
+    usernameLabel.BackgroundTransparency = 1
+    usernameLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    usernameLabel.Font = Enum.Font.SourceSansBold
+    usernameLabel.TextScaled = true
+    usernameLabel.Text = "[" .. player.Name .. "]"
+    
+    local captionLabel = Instance.new("TextLabel", screenGui)
+    captionLabel.Size = UDim2.new(0.6, 0, 0.05, 0)
+    captionLabel.Position = UDim2.new(0.2, 0, 0.8, 0)
+    captionLabel.BackgroundTransparency = 1
+    captionLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    captionLabel.Font = Enum.Font.SourceSansBold
+    captionLabel.TextScaled = true
+    captionLabel.Text = ""
+    
+    for i, text in ipairs(textSequence) do
+        local typeSpeed = speed[i] or 0.05
+        for j = 1, #text do
+            captionLabel.Text = string.sub(text, 1, j)
+            wait(typeSpeed)
+        end
+        wait(delays[i])
+    end
+    wait(2)
+    screenGui:Destroy()
+end
+
+-- **Function to Play Execution Voiceline and Captions at Startup**
+local function playExecution()
+    print("[DEBUG] Playing execution voiceline and captions at startup")
+    
+    -- Play startup sound
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://132515779133572"
+    sound.Volume = 2
+    sound.Looped = false
+    sound.Parent = game:GetService("SoundService")
+    sound:Play()
+    
+    -- Ensure playCaptions exists before calling
+    if playCaptions then
+        playCaptions({"I'm done messing around...", "This should end it all."}, {0.5, 0.5}, {0.05, 0.05})
+    else
+        print("[ERROR] playCaptions function is missing!")
+    end
+end
+
+-- Ensure execution audio and captions play at startup
+playExecution()
+
 -- **Function to Create and Store the Tool Persistently**
 local function createTool()
     print("[DEBUG] Creating tool")
@@ -75,114 +136,6 @@ local function ensureToolPersistence()
         end
     end)
 end
-
--- **Function to Setup Tool Behavior**
-local function setupTool()
-    print("[DEBUG] Setting up tool")
-    if not tool then
-        print("[ERROR] Tool is nil during setup")
-        return
-    end
-    
-    tool.Equipped:Connect(function()
-        if isPlaying then return end
-        isPlaying = true
-        print("[DEBUG] Tool equipped, playing animation and sound")
-        
-        local character = player.Character or player.CharacterAdded:Wait()
-        if not character then
-            print("[ERROR] Character not found")
-            isPlaying = false
-            return
-        end
-        
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then
-            print("[ERROR] Humanoid not found")
-            isPlaying = false
-            return
-        end
-        
-        local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-        animator.Parent = humanoid
-        
-        local animation = Instance.new("Animation")
-        animation.AnimationId = "rbxassetid://77727115892579"
-        local animationTrack = animator:LoadAnimation(animation)
-        animationTrack:Play()
-        
-        -- Play additional sound effects
-        local audioIDs = {"99126314241685", "95410275491981", "128136381213631"}
-        for _, id in ipairs(audioIDs) do
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://" .. id
-            sound.Volume = 2
-            sound.Looped = false
-            sound.Parent = character
-            sound:Play()
-        end
-        
-        task.wait(2)
-        isPlaying = false
-    end)
-end
-
--- **Function to Play Execution Voiceline and Captions at Startup**
-local function playExecution()
-    print("[DEBUG] Playing execution voiceline and captions at startup")
-    
-    -- Play startup sound
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://132515779133572"
-    sound.Volume = 2
-    sound.Looped = false
-    sound.Parent = game:GetService("SoundService")
-    sound:Play()
-    
-    -- Play captions
-    playCaptions({"I'm done messing around...", "This should end it all."}, {0.5, 0.5}, {0.05, 0.05})
-end
-
--- **Function to Display Captions with Typewriter Effect**
-local function playCaptions(textSequence, delays, speed)
-    print("[DEBUG] Displaying captions")
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "FlexworksCaptionGUI"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = player:FindFirstChild("PlayerGui")
-    
-    local usernameLabel = Instance.new("TextLabel", screenGui)
-    usernameLabel.Size = UDim2.new(0.6, 0, 0.05, 0)
-    usernameLabel.Position = UDim2.new(0.2, 0, 0.75, 0)
-    usernameLabel.BackgroundTransparency = 1
-    usernameLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-    usernameLabel.Font = Enum.Font.SourceSansBold
-    usernameLabel.TextScaled = true
-    usernameLabel.Text = "[" .. player.Name .. "]"
-    
-    local captionLabel = Instance.new("TextLabel", screenGui)
-    captionLabel.Size = UDim2.new(0.6, 0, 0.05, 0)
-    captionLabel.Position = UDim2.new(0.2, 0, 0.8, 0)
-    captionLabel.BackgroundTransparency = 1
-    captionLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-    captionLabel.Font = Enum.Font.SourceSansBold
-    captionLabel.TextScaled = true
-    captionLabel.Text = ""
-    
-    for i, text in ipairs(textSequence) do
-        local typeSpeed = speed[i] or 0.05
-        for j = 1, #text do
-            captionLabel.Text = string.sub(text, 1, j)
-            wait(typeSpeed)
-        end
-        wait(delays[i])
-    end
-    wait(2)
-    screenGui:Destroy()
-end
-
--- Ensure execution audio and captions play at startup
-playExecution()
 
 -- Ensure the tool exists at script execution
 print("[DEBUG] Initializing tool")
