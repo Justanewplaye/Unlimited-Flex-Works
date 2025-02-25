@@ -114,7 +114,10 @@ screenGui.Parent = game:GetService("CoreGui")
 local button = Instance.new("ImageButton")
 button.Name = "ShiftButton"
 button.Size = UDim2.new(0, 75, 0, 75)
-button.Position = UDim2.new(0.85, 0, 0.75, 0)
+
+-- 🔥 Positioned based on your image (left side)
+button.Position = UDim2.new(0.05, 0, 0.75, 0)  
+
 button.BackgroundTransparency = 1
 button.ScaleType = Enum.ScaleType.Fit
 button.Parent = screenGui
@@ -135,75 +138,14 @@ end)
 
 -- ✅ Right Shift Emulator Function
 local function emulateRightShift()
-    if not dragMode then
-        local VirtualInputManager = game:GetService("VirtualInputManager")
-        if VirtualInputManager then
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
-            wait(0.1)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
-        end
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    if VirtualInputManager then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
+        wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
     end
 end
 
 button.MouseButton1Click:Connect(function()
     emulateRightShift()
-end)
-
--- ✅ Drag Mode Toggle (Mobile Only)
-local dragMode = false
-local dragButton = Instance.new("TextButton")
-dragButton.Name = "DragModeButton"
-dragButton.Size = UDim2.new(0, 220, 0, 50)
-dragButton.Position = UDim2.new(0.5, -110, 0.1, 0)
-dragButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-dragButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-dragButton.Text = "Enable Drag Mode"
-dragButton.Font = Enum.Font.SourceSansBold
-dragButton.TextSize = 18
-dragButton.Parent = screenGui
-
-dragButton.MouseButton1Click:Connect(function()
-    dragMode = not dragMode
-    if dragMode then
-        dragButton.Text = "Disable Drag Mode"
-    else
-        dragButton.Text = "Enable Drag Mode"
-    end
-end)
-
--- ✅ Mobile Dragging (Now Fully Functional)
-local dragging = false
-local dragStart, startPos
-
-local function update(input)
-    if not dragMode then return end
-    local delta = input.Position - dragStart
-    local newX = startPos.X.Offset + delta.X
-    local newY = startPos.Y.Offset + delta.Y
-
-    local screenSize = game:GetService("GuiService"):GetScreenResolution()
-    local buttonSize = button.AbsoluteSize
-
-    local clampedX = math.clamp(newX, 0, screenSize.X - buttonSize.X)
-    local clampedY = math.clamp(newY, 0, screenSize.Y - buttonSize.Y)
-
-    button.Position = UDim2.new(0, clampedX, 0, clampedY)
-end
-
-button.TouchBegan:Connect(function(input)
-    if dragMode then
-        dragging = true
-        dragStart = input.Position
-        startPos = button.Position
-    end
-end)
-
-button.TouchMoved:Connect(function(input)
-    if dragging and dragMode then
-        update(input)
-    end
-end)
-
-button.TouchEnded:Connect(function()
-    dragging = false
 end)
