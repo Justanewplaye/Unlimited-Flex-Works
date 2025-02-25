@@ -72,31 +72,33 @@ local function loadImageAsset()
     end
 end
 
--- ✅ Create GUI and Button
+-- ✅ Create GUI and Buttons
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ShiftEmulatorGui"
+screenGui.ResetOnSpawn = false  -- ✅ Keeps GUI after respawn
 screenGui.Parent = game:GetService("CoreGui")
 
+-- 🔥 Main Button
 local button = Instance.new("ImageButton")
 button.Name = "ShiftButton"
-button.Size = UDim2.new(0, 75, 0, 75)  -- 🔥 Square (75x75 pixels)
+button.Size = UDim2.new(0, 75, 0, 75)
 button.Position = UDim2.new(0.85, 0, 0.75, 0)
-button.BackgroundTransparency = 1  -- Removes background color
-button.ScaleType = Enum.ScaleType.Fit  -- 🔥 Fixes Image Stretching (Keeps Aspect Ratio)
+button.BackgroundTransparency = 1
+button.ScaleType = Enum.ScaleType.Fit
 button.Parent = screenGui
 
--- ✅ Add rounded edges (but NOT a full circle)
+-- ✅ Add rounded edges
 local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0.3, 0)  -- 🔥 Slightly rounded corners (30% of size)
+uiCorner.CornerRadius = UDim.new(0.3, 0)
 uiCorner.Parent = button
 
--- ✅ Load Image from Auto-Detected Workspace
+-- ✅ Load Image from Workspace
 spawn(function()
     if fetchAndStoreImage() then
         local imageAsset = loadImageAsset()
         if imageAsset then
             button.Image = imageAsset
-            button.ScaleType = Enum.ScaleType.Fit  -- ✅ Makes Image Fit the Square
+            button.ScaleType = Enum.ScaleType.Fit
             print("✅ Image successfully loaded from workspace!")
         else
             warn("⚠️ Image could not be loaded!")
@@ -116,16 +118,38 @@ local function emulateRightShift()
     end
 end
 
--- ✅ Clicking the button emulates Right Shift (to toggle script)
-button.MouseButton1Click:Connect(function()
-    emulateRightShift()
-end)
-
--- ✅ Draggable Button (PC + Mobile Touch Support)
+-- ✅ Draggable Button with Drag Mode Toggle
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
+local dragMode = false  -- ✅ Drag Mode Off by Default
 
+-- 🔥 Drag Mode Toggle Button (Top Right Corner)
+local dragButton = Instance.new("TextButton")
+dragButton.Name = "DragModeButton"
+dragButton.Size = UDim2.new(0, 200, 0, 50)
+dragButton.Position = UDim2.new(1, -210, 0, 10)  -- Top Right
+dragButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)  -- Black Button
+dragButton.TextColor3 = Color3.fromRGB(255, 255, 255)  -- White Text
+dragButton.Text = "Enable Drag Mode"  -- Default Off
+dragButton.Font = Enum.Font.SourceSansBold
+dragButton.TextSize = 20
+dragButton.Parent = screenGui
+
+-- ✅ Toggle Drag Mode Function
+dragButton.MouseButton1Click:Connect(function()
+    dragMode = not dragMode  -- Toggle State
+    if dragMode then
+        dragButton.Text = "Disable Drag Mode"
+        button.Active = false  -- ✅ Disables Button Actions
+    else
+        dragButton.Text = "Enable Drag Mode"
+        button.Active = true  -- ✅ Enables Button Actions
+    end
+end)
+
+-- ✅ Dragging Function (Works Only in Drag Mode)
 local function update(input)
+    if not dragMode then return end  -- ✅ Dragging Only When Enabled
     local delta = input.Position - dragStart
     local newX = startPos.X.Offset + delta.X
     local newY = startPos.Y.Offset + delta.Y
@@ -140,9 +164,9 @@ local function update(input)
     button.Position = UDim2.new(0, clampedX, 0, clampedY)
 end
 
--- ✅ PC Dragging
+-- ✅ PC Dragging (Only When Drag Mode is On)
 button.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if dragMode and input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
         startPos = button.Position
@@ -155,26 +179,13 @@ button.InputBegan:Connect(function(input)
 end)
 
 button.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
+    if dragMode and input.UserInputType == Enum.UserInputType.MouseMovement then
         dragInput = input
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
+    if dragMode and dragging and input == dragInput then
         update(input)
-    end
-end)
-
--- ✅ Mobile Touch Dragging
-button.TouchPan:Connect(function(touchPosition, _, state)
-    if state == Enum.UserInputState.Begin then
-        dragging = true
-        dragStart = touchPosition
-        startPos = button.Position
-    elseif state == Enum.UserInputState.Change and dragging then
-        update({ Position = touchPosition })  -- Simulate mouse movement with touch
-    elseif state == Enum.UserInputState.End then
-        dragging = false
     end
 end)
