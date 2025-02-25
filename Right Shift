@@ -4,17 +4,60 @@ pcall(function()
     setfflag("AllowHttpRequests", "true")
 end)
 
--- 🚀 Auto-Detect Workspace Directory
+local UserInputService = game:GetService("UserInputService")
+
+-- ✅ Check if the device is Mobile
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+-- 🚀 If running on PC, show message and stop execution
+if not isMobile then
+    local gui = Instance.new("ScreenGui")
+    gui.Parent = game:GetService("CoreGui")
+
+    local messageFrame = Instance.new("Frame")
+    messageFrame.Size = UDim2.new(0, 400, 0, 150)
+    messageFrame.Position = UDim2.new(0.5, -200, 0.5, -75)
+    messageFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    messageFrame.BorderSizePixel = 2
+    messageFrame.Parent = gui
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0.3, 0)
+    titleLabel.Position = UDim2.new(0, 0, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    titleLabel.TextSize = 24
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.Text = "Dumbass"
+    titleLabel.Parent = messageFrame
+
+    local reasonLabel = Instance.new("TextLabel")
+    reasonLabel.Size = UDim2.new(1, 0, 0.7, 0)
+    reasonLabel.Position = UDim2.new(0, 0, 0.3, 0)
+    reasonLabel.BackgroundTransparency = 1
+    reasonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    reasonLabel.TextSize = 18
+    reasonLabel.Font = Enum.Font.SourceSans
+    reasonLabel.Text = "Reason: Dude you aren't a mobile player, why are you executing this on PC?\nExecute this on a mobile or iOS device please."
+    reasonLabel.TextWrapped = true
+    reasonLabel.Parent = messageFrame
+
+    -- 🚀 Remove the message after 5 seconds
+    task.delay(5, function()
+        gui:Destroy()
+    end)
+
+    return  -- Stop the script here on PC
+end
+
+-- ✅ Auto-Detect Workspace Directory (For Mobile)
 local function getWorkspacePath()
-    if syn and syn.request then
-        return "synapse/workspace/"
-    elseif getcustomasset then
+    if getcustomasset then
         return "workspace/"
     elseif isfolder and isfile then
-        return "autoexec/"  -- Fallback for other executors
+        return "autoexec/"
     else
-        warn("⚠️ Executor workspace not found! Using default.")
-        return "./"  -- Default to current directory
+        return "./"
     end
 end
 
@@ -28,27 +71,22 @@ local imageUrl = "https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex
 -- ✅ Function to check and download the image
 local function fetchAndStoreImage()
     if isfile(imagePath) then
-        print("✅ Image already exists in workspace: " .. imagePath)
         return true
     end
 
-    -- 🚀 Auto-Download Image
-    local requestFunction = syn and syn.request or http_request or request
+    local requestFunction = http_request or request
     if not requestFunction then
-        warn("⚠️ Your executor does not support external requests.")
         return false
     end
 
     local response = requestFunction({Url = imageUrl, Method = "GET"})
     if response and response.StatusCode == 200 then
         if not isfolder(workspacePath) then
-            makefolder(workspacePath)  -- ✅ Create the workspace folder if missing
+            makefolder(workspacePath)
         end
-        writefile(imagePath, response.Body)  -- ✅ Save image to workspace
-        print("✅ Image downloaded and saved to: " .. imagePath)
+        writefile(imagePath, response.Body)
         return true
     else
-        warn("⚠️ Failed to download image!")
         return false
     end
 end
@@ -56,29 +94,23 @@ end
 -- ✅ Function to Load Image from File
 local function loadImageAsset()
     if isfile(imagePath) then
-        if getsynasset then
-            return getsynasset(imagePath)
-        elseif getcustomasset then
+        if getcustomasset then
             return getcustomasset(imagePath)
-        elseif loadfile then
-            return "file://" .. imagePath
         else
-            warn("⚠️ No valid method to load image asset!")
-            return nil
+            return "file://" .. imagePath
         end
     else
-        warn("⚠️ Image file missing: " .. imagePath)
         return nil
     end
 end
 
--- ✅ Create GUI and Buttons
+-- ✅ Create GUI for Mobile
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ShiftEmulatorGui"
-screenGui.ResetOnSpawn = false  -- ✅ Keeps GUI after respawn
+screenGui.ResetOnSpawn = false
 screenGui.Parent = game:GetService("CoreGui")
 
--- 🔥 Main Button
+-- 🔥 Main Button (Shift Emulator)
 local button = Instance.new("ImageButton")
 button.Name = "ShiftButton"
 button.Size = UDim2.new(0, 75, 0, 75)
@@ -87,74 +119,68 @@ button.BackgroundTransparency = 1
 button.ScaleType = Enum.ScaleType.Fit
 button.Parent = screenGui
 
--- ✅ Add rounded edges
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0.3, 0)
 uiCorner.Parent = button
 
--- ✅ Load Image from Workspace
 spawn(function()
     if fetchAndStoreImage() then
         local imageAsset = loadImageAsset()
         if imageAsset then
             button.Image = imageAsset
             button.ScaleType = Enum.ScaleType.Fit
-            print("✅ Image successfully loaded from workspace!")
-        else
-            warn("⚠️ Image could not be loaded!")
         end
     end
 end)
 
 -- ✅ Right Shift Emulator Function
 local function emulateRightShift()
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    if VirtualInputManager then
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
-        wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
-    else
-        warn("⚠️ VirtualInputManager not available in this executor.")
+    if not dragMode then
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        if VirtualInputManager then
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
+            wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
+        end
     end
 end
 
--- ✅ Draggable Button with Drag Mode Toggle
-local UserInputService = game:GetService("UserInputService")
-local dragging, dragInput, dragStart, startPos
-local dragMode = false  -- ✅ Drag Mode Off by Default
+button.MouseButton1Click:Connect(function()
+    emulateRightShift()
+end)
 
--- 🔥 Drag Mode Toggle Button (Top Right Corner)
+-- ✅ Drag Mode Toggle (Mobile Only)
+local dragMode = false
 local dragButton = Instance.new("TextButton")
 dragButton.Name = "DragModeButton"
-dragButton.Size = UDim2.new(0, 200, 0, 50)
-dragButton.Position = UDim2.new(1, -210, 0, 10)  -- Top Right
-dragButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)  -- Black Button
-dragButton.TextColor3 = Color3.fromRGB(255, 255, 255)  -- White Text
-dragButton.Text = "Enable Drag Mode"  -- Default Off
+dragButton.Size = UDim2.new(0, 220, 0, 50)
+dragButton.Position = UDim2.new(0.5, -110, 0.1, 0)
+dragButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+dragButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+dragButton.Text = "Enable Drag Mode"
 dragButton.Font = Enum.Font.SourceSansBold
-dragButton.TextSize = 20
+dragButton.TextSize = 18
 dragButton.Parent = screenGui
 
--- ✅ Toggle Drag Mode Function
 dragButton.MouseButton1Click:Connect(function()
-    dragMode = not dragMode  -- Toggle State
+    dragMode = not dragMode
     if dragMode then
         dragButton.Text = "Disable Drag Mode"
-        button.Active = false  -- ✅ Disables Button Actions
     else
         dragButton.Text = "Enable Drag Mode"
-        button.Active = true  -- ✅ Enables Button Actions
     end
 end)
 
--- ✅ Dragging Function (Works Only in Drag Mode)
+-- ✅ Mobile Dragging (Now Fully Functional)
+local dragging = false
+local dragStart, startPos
+
 local function update(input)
-    if not dragMode then return end  -- ✅ Dragging Only When Enabled
+    if not dragMode then return end
     local delta = input.Position - dragStart
     local newX = startPos.X.Offset + delta.X
     local newY = startPos.Y.Offset + delta.Y
 
-    -- Prevents button from going out of screen bounds
     local screenSize = game:GetService("GuiService"):GetScreenResolution()
     local buttonSize = button.AbsoluteSize
 
@@ -164,28 +190,20 @@ local function update(input)
     button.Position = UDim2.new(0, clampedX, 0, clampedY)
 end
 
--- ✅ PC Dragging (Only When Drag Mode is On)
-button.InputBegan:Connect(function(input)
-    if dragMode and input.UserInputType == Enum.UserInputType.MouseButton1 then
+button.TouchBegan:Connect(function(input)
+    if dragMode then
         dragging = true
         dragStart = input.Position
         startPos = button.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
     end
 end)
 
-button.InputChanged:Connect(function(input)
-    if dragMode and input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragMode and dragging and input == dragInput then
+button.TouchMoved:Connect(function(input)
+    if dragging and dragMode then
         update(input)
     end
+end)
+
+button.TouchEnded:Connect(function()
+    dragging = false
 end)
