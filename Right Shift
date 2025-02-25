@@ -115,8 +115,8 @@ local button = Instance.new("ImageButton")
 button.Name = "ShiftButton"
 button.Size = UDim2.new(0, 75, 0, 75)
 
--- 🔥 Positioned based on your image (left side)
-button.Position = UDim2.new(0.05, 0, 0.75, 0)  
+-- 🔥 Adjusted Position to Be Closer to the Red Arrow Tip
+button.Position = UDim2.new(0.02, 0, 0.65, 0)  
 
 button.BackgroundTransparency = 1
 button.ScaleType = Enum.ScaleType.Fit
