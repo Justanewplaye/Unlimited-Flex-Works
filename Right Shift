@@ -121,7 +121,7 @@ button.MouseButton1Click:Connect(function()
     emulateRightShift()
 end)
 
--- ✅ Draggable Button with Screen Boundaries
+-- ✅ Draggable Button (PC + Mobile Touch Support)
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 
@@ -140,6 +140,7 @@ local function update(input)
     button.Position = UDim2.new(0, clampedX, 0, clampedY)
 end
 
+-- ✅ PC Dragging
 button.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
@@ -162,5 +163,18 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         update(input)
+    end
+end)
+
+-- ✅ Mobile Touch Dragging
+button.TouchPan:Connect(function(touchPosition, _, state)
+    if state == Enum.UserInputState.Begin then
+        dragging = true
+        dragStart = touchPosition
+        startPos = button.Position
+    elseif state == Enum.UserInputState.Change and dragging then
+        update({ Position = touchPosition })  -- Simulate mouse movement with touch
+    elseif state == Enum.UserInputState.End then
+        dragging = false
     end
 end)
