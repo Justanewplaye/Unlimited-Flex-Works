@@ -1,51 +1,106 @@
--- ✅ Force HttpService to allow external requests (Prevents executor restrictions)
+-- ✅ Force HttpService to allow external requests (Fixes executor restrictions)
 pcall(function()
     setfflag("HttpService", "true")
     setfflag("AllowHttpRequests", "true")
 end)
 
+-- 🚀 Auto-Detect Workspace Directory
+local function getWorkspacePath()
+    if syn and syn.request then
+        return "synapse/workspace/"
+    elseif getcustomasset then
+        return "workspace/"
+    elseif isfolder and isfile then
+        return "autoexec/"  -- Fallback for other executors
+    else
+        warn("⚠️ Executor workspace not found! Using default.")
+        return "./"  -- Default to current directory
+    end
+end
+
+local workspacePath = getWorkspacePath()
+local imageFileName = "shift_icon.png"
+local imagePath = workspacePath .. imageFileName
+
+-- ✅ Image URL (Raw from GitHub)
 local imageUrl = "https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/refs/heads/main/12e40e625eb48f14b4765cf26fc2993c.png"
 
--- ✅ Use syn.request() to safely fetch external images
-local function fetchImage()
-    if syn and syn.request then
-        local response = syn.request({Url = imageUrl, Method = "GET"})
-        if response and response.StatusCode == 200 then
-            return imageUrl  -- ✅ External image loaded successfully!
+-- ✅ Function to check and download the image
+local function fetchAndStoreImage()
+    if isfile(imagePath) then
+        print("✅ Image already exists in workspace: " .. imagePath)
+        return true
+    end
+
+    -- 🚀 Auto-Download Image
+    local requestFunction = syn and syn.request or http_request or request
+    if not requestFunction then
+        warn("⚠️ Your executor does not support external requests.")
+        return false
+    end
+
+    local response = requestFunction({Url = imageUrl, Method = "GET"})
+    if response and response.StatusCode == 200 then
+        if not isfolder(workspacePath) then
+            makefolder(workspacePath)  -- ✅ Create the workspace folder if missing
+        end
+        writefile(imagePath, response.Body)  -- ✅ Save image to workspace
+        print("✅ Image downloaded and saved to: " .. imagePath)
+        return true
+    else
+        warn("⚠️ Failed to download image!")
+        return false
+    end
+end
+
+-- ✅ Function to Load Image from File
+local function loadImageAsset()
+    if isfile(imagePath) then
+        if getsynasset then
+            return getsynasset(imagePath)
+        elseif getcustomasset then
+            return getcustomasset(imagePath)
+        elseif loadfile then
+            return "file://" .. imagePath
         else
-            warn("⚠️ Failed to fetch external image.")
+            warn("⚠️ No valid method to load image asset!")
             return nil
         end
     else
-        warn("⚠️ syn.request not available. Your executor might not support it.")
+        warn("⚠️ Image file missing: " .. imagePath)
         return nil
     end
 end
 
--- ✅ Create GUI and button
+-- ✅ Create GUI and Button
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ShiftEmulatorGui"
 screenGui.Parent = game:GetService("CoreGui")
 
 local button = Instance.new("ImageButton")
 button.Name = "ShiftButton"
-button.Size = UDim2.new(0, 60, 0, 60)  -- Circular button (60x60 pixels)
-button.Position = UDim2.new(0.9, -70, 0.8, -70)
+button.Size = UDim2.new(0, 75, 0, 75)  -- 🔥 Square (75x75 pixels)
+button.Position = UDim2.new(0.85, 0, 0.75, 0)
 button.BackgroundTransparency = 1  -- Removes background color
+button.ScaleType = Enum.ScaleType.Fit  -- 🔥 Fixes Image Stretching (Keeps Aspect Ratio)
 button.Parent = screenGui
 
--- ✅ Add rounded corners to make the button circular
+-- ✅ Add rounded edges (but NOT a full circle)
 local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(1, 0)  -- Fully circular
+uiCorner.CornerRadius = UDim.new(0.3, 0)  -- 🔥 Slightly rounded corners (30% of size)
 uiCorner.Parent = button
 
--- ✅ Load Image AFTER forcing HttpService settings
+-- ✅ Load Image from Auto-Detected Workspace
 spawn(function()
-    local imageResult = fetchImage()
-    if imageResult then
-        button.Image = imageResult
-    else
-        warn("⚠️ Could not load external image.")
+    if fetchAndStoreImage() then
+        local imageAsset = loadImageAsset()
+        if imageAsset then
+            button.Image = imageAsset
+            button.ScaleType = Enum.ScaleType.Fit  -- ✅ Makes Image Fit the Square
+            print("✅ Image successfully loaded from workspace!")
+        else
+            warn("⚠️ Image could not be loaded!")
+        end
     end
 end)
 
@@ -66,13 +121,23 @@ button.MouseButton1Click:Connect(function()
     emulateRightShift()
 end)
 
--- ✅ Draggable Button Code
+-- ✅ Draggable Button with Screen Boundaries
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 
 local function update(input)
     local delta = input.Position - dragStart
-    button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    local newX = startPos.X.Offset + delta.X
+    local newY = startPos.Y.Offset + delta.Y
+
+    -- Prevents button from going out of screen bounds
+    local screenSize = game:GetService("GuiService"):GetScreenResolution()
+    local buttonSize = button.AbsoluteSize
+
+    local clampedX = math.clamp(newX, 0, screenSize.X - buttonSize.X)
+    local clampedY = math.clamp(newY, 0, screenSize.Y - buttonSize.Y)
+
+    button.Position = UDim2.new(0, clampedX, 0, clampedY)
 end
 
 button.InputBegan:Connect(function(input)
