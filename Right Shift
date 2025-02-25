@@ -1,4 +1,10 @@
+-- Attempt to load external image as a variable (avoiding errors on first line)
 local imageUrl = "https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/refs/heads/main/12e40e625eb48f14b4765cf26fc2993c.png"
+local imageLoaded = ""
+
+pcall(function()
+    imageLoaded = game:HttpGet(imageUrl)  -- Try loading the image
+end)
 
 -- Create GUI and button
 local screenGui = Instance.new("ScreenGui")
@@ -17,13 +23,9 @@ local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(1, 0)  -- Makes it fully circular
 uiCorner.Parent = button
 
--- Attempt to load external image
-local success, result = pcall(function()
-    return game:HttpGet(imageUrl)
-end)
-
-if success then
-    button.Image = imageUrl -- Some executors support setting external URLs
+-- If image loaded successfully, apply it
+if imageLoaded ~= "" then
+    button.Image = imageUrl  -- Works if executor allows external images
 else
     warn("Failed to load external image. Roblox may be blocking this request.")
 end
@@ -32,7 +34,6 @@ end
 local function emulateRightShift()
     local VirtualInputManager = game:GetService("VirtualInputManager")
     if VirtualInputManager then
-        -- Simulate key press: press then release after a short delay
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
         wait(0.1)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
@@ -78,4 +79,4 @@ UserInputService.InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         update(input)
     end
-end
+end)
