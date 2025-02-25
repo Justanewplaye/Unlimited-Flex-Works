@@ -1,0 +1,76 @@
+--[[ 
+  Draggable Right Shift Emulator Button
+  --------------------------------------
+  This script creates a small square GUI button that, when clicked,
+  simulates a right shift key press. It’s parented to CoreGui so that
+  it remains visible on respawn. Use responsibly and for educational
+  purposes only.
+  
+  Note: VirtualInputManager is typically available only in certain Lua
+  executor environments. This code might not work in every context.
+--]]
+
+-- Create the GUI and button
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ShiftEmulatorGui"
+screenGui.Parent = game:GetService("CoreGui")  -- Persists on respawn
+
+local button = Instance.new("TextButton")
+button.Name = "ShiftButton"
+button.Size = UDim2.new(0, 50, 0, 50)  -- Square button: 50x50 pixels
+button.Position = UDim2.new(0.9, -60, 0.8, -60)  -- Default position; adjust as needed
+button.Text = "Shift"
+button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+button.Parent = screenGui
+
+-- Draggable functionality
+local UserInputService = game:GetService("UserInputService")
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = button.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+button.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        update(input)
+    end
+end)
+
+-- Function to emulate pressing the Right Shift key
+local function emulateRightShift()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    if VirtualInputManager then
+        -- Simulate key press: press then release after a short delay
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
+        wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
+    else
+        warn("VirtualInputManager not available in this executor.")
+    end
+end
+
+-- Bind the button click to the emulation function
+button.MouseButton1Click:Connect(function()
+    emulateRightShift()
+end)
