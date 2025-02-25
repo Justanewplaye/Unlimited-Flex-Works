@@ -1,29 +1,52 @@
---[[ 
-  Draggable Right Shift Emulator Button
-  --------------------------------------
-  This script creates a small square GUI button that, when clicked,
-  simulates a right shift key press. It’s parented to CoreGui so that
-  it remains visible on respawn. Use responsibly and for educational
-  purposes only.
-  
-  Note: VirtualInputManager is typically available only in certain Lua
-  executor environments. This code might not work in every context.
---]]
+local imageUrl = "https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/refs/heads/main/12e40e625eb48f14b4765cf26fc2993c.png"
 
--- Create the GUI and button
+-- Create GUI and button
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ShiftEmulatorGui"
-screenGui.Parent = game:GetService("CoreGui")  -- Persists on respawn
+screenGui.Parent = game:GetService("CoreGui")
 
-local button = Instance.new("TextButton")
+local button = Instance.new("ImageButton")
 button.Name = "ShiftButton"
-button.Size = UDim2.new(0, 50, 0, 50)  -- Square button: 50x50 pixels
-button.Position = UDim2.new(0.9, -60, 0.8, -60)  -- Default position; adjust as needed
-button.Text = "Shift"
-button.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+button.Size = UDim2.new(0, 60, 0, 60)  -- Circular button (60x60 pixels)
+button.Position = UDim2.new(0.9, -70, 0.8, -70)
+button.BackgroundTransparency = 1  -- Removes background color
 button.Parent = screenGui
 
--- Draggable functionality
+-- Add rounded corners
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(1, 0)  -- Makes it fully circular
+uiCorner.Parent = button
+
+-- Attempt to load external image
+local success, result = pcall(function()
+    return game:HttpGet(imageUrl)
+end)
+
+if success then
+    button.Image = imageUrl -- Some executors support setting external URLs
+else
+    warn("Failed to load external image. Roblox may be blocking this request.")
+end
+
+-- Right Shift Emulator Function
+local function emulateRightShift()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    if VirtualInputManager then
+        -- Simulate key press: press then release after a short delay
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
+        wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
+    else
+        warn("VirtualInputManager not available in this executor.")
+    end
+end
+
+-- When the button is clicked, emulate the Right Shift press (activating the script's built-in function)
+button.MouseButton1Click:Connect(function()
+    emulateRightShift()
+end)
+
+-- Draggable Functionality
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 
@@ -55,22 +78,4 @@ UserInputService.InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         update(input)
     end
-end)
-
--- Function to emulate pressing the Right Shift key
-local function emulateRightShift()
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    if VirtualInputManager then
-        -- Simulate key press: press then release after a short delay
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightShift, false, nil)
-        wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
-    else
-        warn("VirtualInputManager not available in this executor.")
-    end
 end
-
--- Bind the button click to the emulation function
-button.MouseButton1Click:Connect(function()
-    emulateRightShift()
-end)
