@@ -1,12 +1,28 @@
--- Attempt to load external image as a variable (avoiding errors on first line)
-local imageUrl = "https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/refs/heads/main/12e40e625eb48f14b4765cf26fc2993c.png"
-local imageLoaded = ""
-
+-- ✅ Force HttpService to allow external requests (Prevents executor restrictions)
 pcall(function()
-    imageLoaded = game:HttpGet(imageUrl)  -- Try loading the image
+    setfflag("HttpService", "true")
+    setfflag("AllowHttpRequests", "true")
 end)
 
--- Create GUI and button
+local imageUrl = "https://raw.githubusercontent.com/Justanewplaye/Unlimited-Flex-Works/refs/heads/main/12e40e625eb48f14b4765cf26fc2993c.png"
+
+-- ✅ Use syn.request() to safely fetch external images
+local function fetchImage()
+    if syn and syn.request then
+        local response = syn.request({Url = imageUrl, Method = "GET"})
+        if response and response.StatusCode == 200 then
+            return imageUrl  -- ✅ External image loaded successfully!
+        else
+            warn("⚠️ Failed to fetch external image.")
+            return nil
+        end
+    else
+        warn("⚠️ syn.request not available. Your executor might not support it.")
+        return nil
+    end
+end
+
+-- ✅ Create GUI and button
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ShiftEmulatorGui"
 screenGui.Parent = game:GetService("CoreGui")
@@ -18,19 +34,22 @@ button.Position = UDim2.new(0.9, -70, 0.8, -70)
 button.BackgroundTransparency = 1  -- Removes background color
 button.Parent = screenGui
 
--- Add rounded corners
+-- ✅ Add rounded corners to make the button circular
 local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(1, 0)  -- Makes it fully circular
+uiCorner.CornerRadius = UDim.new(1, 0)  -- Fully circular
 uiCorner.Parent = button
 
--- If image loaded successfully, apply it
-if imageLoaded ~= "" then
-    button.Image = imageUrl  -- Works if executor allows external images
-else
-    warn("Failed to load external image. Roblox may be blocking this request.")
-end
+-- ✅ Load Image AFTER forcing HttpService settings
+spawn(function()
+    local imageResult = fetchImage()
+    if imageResult then
+        button.Image = imageResult
+    else
+        warn("⚠️ Could not load external image.")
+    end
+end)
 
--- Right Shift Emulator Function
+-- ✅ Right Shift Emulator Function
 local function emulateRightShift()
     local VirtualInputManager = game:GetService("VirtualInputManager")
     if VirtualInputManager then
@@ -38,16 +57,16 @@ local function emulateRightShift()
         wait(0.1)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightShift, false, nil)
     else
-        warn("VirtualInputManager not available in this executor.")
+        warn("⚠️ VirtualInputManager not available in this executor.")
     end
 end
 
--- When the button is clicked, emulate the Right Shift press (activating the script's built-in function)
+-- ✅ Clicking the button emulates Right Shift (to toggle script)
 button.MouseButton1Click:Connect(function()
     emulateRightShift()
 end)
 
--- Draggable Functionality
+-- ✅ Draggable Button Code
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 
